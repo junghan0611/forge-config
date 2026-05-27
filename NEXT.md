@@ -2,87 +2,79 @@
 
 > 끝나지 않은 일과 후속 검증 항목. 영속 baseline 은 [AGENTS.md](./AGENTS.md), 이 문서는 *지금 시점의 다음 한 걸음*.
 
-## 지금 상태 (2026-05-27 KST 09:30)
+## 지금 상태 (2026-05-27 KST 10:40)
 
 - ✅ Oracle 인프라 가동: `https://forge.junghanacs.com` (Forgejo 15.0.2)
 - ✅ admin user `junghanacs` 생성
 - ✅ Caddy 리버스 프록시 + Let's Encrypt
 - ✅ README / AGENTS / NEXT 초안 박힘
-- ❌ 코드 (`bin/forge`, skill) — **아직 없음**. 같이 논의 후 결정.
-- ❌ GitHub repo 생성 — **아직 안 함**. 로컬 git init 만 됨.
+- ✅ 검증용 sandbox: `glg-bot/sandbox#1` 라벨 5개 + 봇 footer 코멘트 검증 완료
+- ✅ `bin/forge` minimal 4-command 박힘: `list-open`, `comment`, `label-add`, `state`
+- ✅ GitHub remote: `junghan0611/forge-config`
+- ❌ forge-config 자체 Forgejo repo/issue — 아직 없음. sandbox 다음 단계.
+- ❌ agent skill surface — 아직 없음. `bin/forge` 안정화 후 thin pointer.
 
-## 다음 한 걸음 — 같이 논의할 항목
+## 다음 한 걸음 — 결정/대기 항목
 
-힣 에이전트들이랑 forge-config 를 어떻게 구성할지 같이 잡아야 함:
+forge-config 구성에 대해 담당자가 박은 현재 결정. 기준: 봇멘트 패턴 일관성 / 봇로그 SSOT / 닫힌 계 / 최소 권한.
 
-### 1. 디렉토리 구조 — voscli 패턴 차용?
+### 1. 디렉토리 구조 — minimal-first로 결정
 
 ```
 forge-config/
 ├── README.md             ✓ 박힘
 ├── AGENTS.md             ✓ 박힘
 ├── NEXT.md               ✓ 박힘
-├── ROADMAP.md            ? — voscli 처럼 7-spike SSOT 만들까
-├── docs/
-│   ├── label-protocol.md ? — 5개 라벨 의미
-│   ├── footer-signing.md ? — "— glg-bot [model / host]" 규약
-│   ├── host-setup.md     ? — oracle / alskdjf 재현 가이드
-│   └── gotchas.md        ? — INSTALL_LOCK env, inode caching 등
-├── bin/forge             ? — curl wrapper CLI (sh 또는 deno?)
-├── lib/                  ? — 공용 함수
-├── .claude/skills/forge/
-│   └── SKILL.md          ? — agent surface (cwd 기반 auto-load)
-└── examples/             ? — list / comment / label-add 실예
+├── bin/forge             ✓ sh + curl + jq minimal 4-command
+├── docs/                 → 힣 결정 대기 (근거: 영속 문서 분리는 필요하지만 지금은 봇로그+AGENTS가 SSOT)
+├── .claude/skills/forge/ → 다음 spike: thin pointer 표면
+└── examples/             → 실제 round-trip 누적 후 필요 시
 ```
 
-### 2. CLI 언어 — sh / bash vs deno vs go?
+- `ROADMAP.md`는 아직 만들지 않음. 7-spike SSOT는 이미 agent-config #13 + 봇로그에 있으므로 중복 방지.
+- `lib/`는 아직 만들지 않음. 4-command가 한 파일로 읽히는 동안은 봇멘트 패턴상 단일 스크립트 유지.
 
-- **sh + curl + jq** — 봇멘트 패턴 일관성, OpenClaw 컨테이너 호환
-- **deno** — 타입 안전, 의존성 0 (단일 binary), 사용자 다른 곳에서도 활용
-- **go (native)** — voscli 의 GraalVM 처럼 binary 배포, 더 무거움
+### 2. CLI 언어 — sh + curl + jq 로 결정
 
-봇멘트가 sh 인 것 보면 일관성 위해 **sh + curl + jq** 가 자연스러움.
-근데 라벨 protocol / sibling 호출 같은 게 복잡해지면 deno 도 후보.
+- 결정: **POSIX sh + curl + jq**.
+- 근거: 봇멘트 패턴 일관성, OpenClaw/서버 환경 호환성, 닫힌 계에서 의존성 최소화.
+- 보류: sibling 호출/웹훅/복잡한 상태 전이가 들어와 단일 sh가 불투명해질 때만 deno/go 재검토.
 
-### 3. agent-config 와의 표면 분리 방식
+### 3. agent-config 와의 표면 분리 방식 — thin pointer 로 결정
 
-- (A) symlink — `agent-config/skills/forge/` → `~/repos/gh/forge-config/.claude/skills/forge/`
-- (B) git submodule — agent-config 안에 forge-config 박기
-- (C) duplicate — forge-config SKILL.md 를 agent-config 로 복사 (lockfile 동기화)
-- (D) thin pointer — agent-config skill 은 단 몇 줄로 "forge-config repo 의 bin/forge 실행해" 만 안내
+- 결정: **(D) thin pointer**.
+- agent-config skill은 “`~/repos/gh/forge-config/bin/forge`를 사용하라”는 표면만 제공.
+- SSOT는 forge-config에 둔다. symlink/submodule/복사는 동기화 실패면이 늘어나므로 v1에서 제외.
 
-voscli 는 (D) 패턴 (`.pi/settings.json` 으로 pi 공유, `.claude/skills/voscli/` cwd 기반 auto-load).
-**(D) 가 가장 단순**. 변경 추적도 forge-config 한 자리에서.
+### 4. GitHub repo 공개 시점 — round-trip 후 공개/푸시 유지로 결정
 
-### 4. GitHub repo 공개 시점
+- 현재 remote는 `https://github.com/junghan0611/forge-config.git`.
+- 결정: README/AGENTS만 있는 상태가 아니라, `bin/forge` 첫 round-trip까지 포함한 뒤 공개 이력으로 둔다.
+- 주의: 시크릿은 계속 `~/.env.local`/`pass`에만. 이 repo에는 변수명/절차만 둔다.
 
-- 지금 push? — README/AGENTS 만 박힌 상태로 noisy
-- spike 0 (봇멘트 fork) 완료 후 push? — 첫 round-trip 검증 후 공개가 깔끔
-- private 으로 먼저 push → 어느 정도 진행 후 public 전환?
+### 5. 라벨 / 라벨 자동 생성 — 명시 bootstrap은 다음 spike로 대기
 
-봇멘트도 별도 공개 repo 없이 agent-config 안에 살았다. forge-config 는 더 큰 ownership 이라 별도가 맞는데, **언제 public 으로 가나** 는 결정 필요.
+- 현재 sandbox에는 5개 라벨이 수동 검증 완료.
+- 결정: minimal 4-command에는 `bootstrap-labels`를 넣지 않음. 작동면이 늘어나면 책임 경계가 흐려짐.
+- → 힣 결정 대기: forge-config 자체 repo를 만들 때 `bootstrap-labels`를 CLI에 추가할지, 초기 세팅 문서로만 둘지.
 
-### 5. 라벨 / 라벨 자동 생성
+### 6. 첫 issue / 첫 작업 — sandbox 완료, forge-config 자체 issue는 힣 결정 대기
 
-- Forgejo 에 5개 라벨 미리 박을까? — bin/forge bootstrap-labels
-- 첫 issue 만들 때 만들까? — 게으른 초기화
-
-### 6. 첫 issue / 첫 작업
-
-- `forge-config` 자체의 이슈를 forge.junghanacs.com 에 박는다 (eat your own dog food)
-- 첫 이슈: "Spike 0 — 봇멘트 fork → forge API endpoint swap"
-- 라벨 protocol 검증의 첫 케이스
+- 완료: `glg-bot/sandbox#1` — "Spike 0 — 봇멘트 fork → forge API endpoint swap".
+- 다음 후보: Forgejo 안에 `glg-bot/forge-config` 또는 `junghanacs/forge-config`를 만들고 동일 프로토콜로 dogfood.
+- → 힣 결정 대기 (근거: GitHub 공개 repo와 Forgejo 운영 repo의 ownership/user namespace는 사람 결정이 필요).
 
 ## 미루지 말 것
 
-- `~/.env.local` 에 `FORGE_URL` / `FORGE_TOKEN` / `FORGE_USER` 박기 (glg-bot 사용자 생성 + token 발급 후)
-- 그게 안 박혀있으면 어떤 cli 도 동작 X
+- `~/.env.local` 에 `FORGE_URL` / `FORGE_TOKEN` / `FORGE_USER` 유지 (glg-bot 사용자/token)
+- `bin/forge state 1` / `list-open` / `comment` round-trip 결과를 깨뜨리지 않기
+- 봇 footer 자동 삽입 유지: `— glg-bot [gpt-5.5 / oracle]`
 
 ## 미루어도 되는 것
 
-- ROADMAP.md (논의 후)
-- bin/forge 코드 (논의 후)
-- agent-config 표면 (CLI 결정 후)
+- ROADMAP.md (봇로그/issue와 중복되지 않을 때)
+- docs/ 분리 (AGENTS/README가 비대해질 때)
+- agent-config 표면 (CLI 최소 검증 후)
 - alskdjf 인프라 (oracle 운영 안정화 후)
 
 ## 영속 사실 (NEXT 에서 빠질 것)

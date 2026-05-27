@@ -1,0 +1,118 @@
+#!/usr/bin/env sh
+set -eu
+
+usage() {
+  cat <<'EOF'
+Usage:
+  forge list-open [REPO]
+  forge comment ISSUE BODY
+  forge label-add ISSUE LABEL
+  forge state ISSUE
+
+Environment:
+  FORGE_URL, FORGE_TOKEN, FORGE_USER
+  FORGE_REPO          default: glg-bot/sandbox
+  FORGE_BOT_FOOTER    default: — glg-bot [gpt-5.5 / oracle]
+EOF
+}
+
+require_env() {
+  : "${FORGE_URL:?FORGE_URL is required}"
+  : "${FORGE_TOKEN:?FORGE_TOKEN is required}"
+  : "${FORGE_USER:=glg-bot}"
+  : "${FORGE_REPO:=glg-bot/sandbox}"
+  : "${FORGE_BOT_FOOTER:=— glg-bot [gpt-5.5 / oracle]}"
+  DEFAULT_REPO="$FORGE_REPO"
+  API="${FORGE_URL%/}/api/v1"
+}
+
+api() {
+  method="$1"; path="$2"; data="${3-}"
+  if [ -n "$data" ]; then
+    curl -fsS -X "$method" \
+      -H "Authorization: token $FORGE_TOKEN" \
+      -H "Content-Type: application/json" \
+      --data "$data" \
+      "$API$path"
+  else
+    curl -fsS -X "$method" \
+      -H "Authorization: token $FORGE_TOKEN" \
+      "$API$path"
+  fi
+}
+
+repo_path() {
+  repo="$1"
+  case "$repo" in
+    */*) printf '%s' "$repo" ;;
+    *) printf '%s/%s' "$FORGE_USER" "$repo" ;;
+  esac
+}
+
+issue_number() {
+  case "$1" in
+    *#*) printf '%s' "${1##*#}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+issue_repo() {
+  case "$1" in
+    *#*) printf '%s' "${1%#*}" ;;
+    *) printf '%s' "$DEFAULT_REPO" ;;
+  esac
+}
+
+cmd_list_open() {
+  repo="$(repo_path "${1:-$DEFAULT_REPO}")"
+  api GET "/repos/$repo/issues?state=open" | jq -r '
+    if length == 0 then "(no open issues)"
+    else .[] | "#\(.number) [\(.state)] \(.title) labels=[\([.labels[].name] | join(","))] comments=\(.comments)"
+    end'
+}
+
+cmd_comment() {
+  [ "$#" -ge 2 ] || { usage >&2; exit 2; }
+  issue="$1"; shift
+  body="$*"
+  repo="$(repo_path "$(issue_repo "$issue")")"
+  num="$(issue_number "$issue")"
+  full_body=$(printf '%s\n\n%s' "$body" "$FORGE_BOT_FOOTER")
+  payload=$(jq -n --arg body "$full_body" '{body:$body}')
+  api POST "/repos/$repo/issues/$num/comments" "$payload" | jq -r '"comment #\(.id) by \(.user.login): \(.body | split("\n")[0])"'
+}
+
+cmd_label_add() {
+  [ "$#" -eq 2 ] || { usage >&2; exit 2; }
+  issue="$1"; label="$2"
+  repo="$(repo_path "$(issue_repo "$issue")")"
+  num="$(issue_number "$issue")"
+  label_id=$(api GET "/repos/$repo/labels" | jq -r --arg name "$label" '.[] | select(.name == $name) | .id' | head -n1)
+  [ -n "$label_id" ] || { echo "label not found: $label" >&2; exit 1; }
+  payload=$(jq -n --argjson id "$label_id" '{labels:[$id]}')
+  api POST "/repos/$repo/issues/$num/labels" "$payload" | jq -r '"labels=[\([.[].name] | join(","))]"'
+}
+
+cmd_state() {
+  [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+  issue="$1"
+  repo="$(repo_path "$(issue_repo "$issue")")"
+  num="$(issue_number "$issue")"
+  issue_json=$(api GET "/repos/$repo/issues/$num")
+  comments_json=$(api GET "/repos/$repo/issues/$num/comments")
+  printf '%s\n' "$issue_json" | jq -r '"#\(.number) [\(.state)] \(.title)\nlabels=[\([.labels[].name] | join(","))]\ncomments=\(.comments)\nurl=\(.html_url)"'
+  printf '%s\n' "$comments_json" | jq -r '
+    if length == 0 then "recent_comments=(none)"
+    else "recent_comments:" , (.[-3:][] | "- \(.user.login): \(.body | gsub("\\n"; " ") | .[0:160])")
+    end'
+}
+
+cmd="${1-}"
+case "$cmd" in
+  -h|--help|help|"") usage ;;
+  list-open) require_env; shift; cmd_list_open "$@" ;;
+  comment) require_env; shift; cmd_comment "$@" ;;
+  label-add) require_env; shift; cmd_label_add "$@" ;;
+  state) require_env; shift; cmd_state "$@" ;;
+  *) echo "unknown command: $cmd" >&2; usage >&2; exit 2 ;;
+esac
