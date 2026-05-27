@@ -14,7 +14,7 @@
 - ✅ Forgejo repo: `glg-bot/forge-config` (운영면 — 라벨 5개 박힘). GitHub의 짝
 - ✅ AGENTS.md 운영 사실 영속화 (라벨/forge cmd/footer/secret)
 - ✅ agent skill thin pointer 박힘: `agent-config/skills/forge/SKILL.md` 가 `~/repos/gh/forge-config/bin/forge` SSOT 가리킴. `ghcli` 패턴 (scripts/ 폴더 제거, SKILL.md 단일). 동사 4개 / env 변수명(`FORGE_URL`) / footer 단일 패턴 / 라벨 5개 — bin/forge 와 정합 (2026-05-27).
-- 🔄 alskdjf 인프라 — 힣이 직접 구축 중 (2026-05-27). work forge 가동 검증 통과 (v15.0.2). work 토큰은 ~/.env.local FORGE_WORK_* + pass api/forge/work/glg-bot 이중화. bin/forge는 아직 단일 host (FORGE_URL 만) — multi-host(--host work)는 다음 spike
+- 🔄 alskdjf 인프라 — 힣이 직접 구축 중 (2026-05-27). work forge 가동 검증 통과 (v15.0.2). 운영 양식: **mirror (M)** — 코드 SSOT 외부 GitHub, Forgejo 는 봇 운영면(이슈/라벨/PR 자동화). oracle 의 *짝(paired)* 패턴과 분기된 자리. work 토큰 이중화(pass + ~/.env.local prefix 변수). multi-host 처리는 `~/.env.local` host-scoped case + `~/.current-device` 로 해결 (아래 "미루어도 되는 것" 참조)
 
 ## 다음 한 걸음 — 결정/대기 항목
 
@@ -79,7 +79,7 @@ forge-config/
 - ROADMAP.md (봇로그/issue와 중복되지 않을 때)
 - docs/ 분리 (AGENTS/README가 비대해질 때)
 - agent skill farm 배포 (`./run.sh setup` — agent-config 담당자 결정. thin pointer 박혔으므로 진행 가능, 단 다중 호스트에 `~/repos/gh/forge-config` 클론 사전 확인 필요)
-- **bin/forge multi-host 지원** (`--host work` 또는 `FORGE_HOST=work`) — 두 인스턴스(oracle+work) 동시 운영. 환경 변수: `FORGE_URL/TOKEN/USER` (default) vs `FORGE_WORK_URL/TOKEN/USER`. work 토큰 이중화 완료(2026-05-27), CLI 진화는 사용 누적 후
+- ~~**bin/forge multi-host 지원**~~ — **해결됨 (2026-05-27)**. `~/.env.local` 끝에 host-scoped `case` 문 + `~/.current-device` 값으로 prefix 변수(`<HOST>_FORGE_*`)를 unprefixed `FORGE_*` 로 export. `bin/forge` 코드는 단일-host 인터페이스 유지 — CLI 진화 불필요. minimal-first 보존. 새 host 추가 시 `.env.local` case 문에 분기 1개 추가만 하면 됨
 
 ## 영속 사실 — 이전 완료 / 대기
 
@@ -89,3 +89,4 @@ forge-config/
 - ✅ footer 서명 규약 → AGENTS.md "봇 footer 서명" 섹션 (Turn 2 영속화)
 - ✅ 호스트 역할 분리 (oracle vs alskdjf) → README.md 호스트 표 (초안에 이미 있음)
 - ⏳ gotchas (INSTALL_LOCK env, inode caching, write:user scope) → 봇로그 20260527T073823 LLMLOG 섹션에 박힘. 운영이 누적되면 `docs/gotchas.md`로 별도 분리 검토
+- ⏳ multi-host 처리 방식 (`~/.env.local` host-scoped case + `~/.current-device`) — 2026-05-27 결정. 운영 안정화 후 AGENTS.md "다중 호스트 정책" 섹션에 박을 자리
