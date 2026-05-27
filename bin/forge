@@ -4,24 +4,101 @@ set -eu
 usage() {
   cat <<'EOF'
 Usage:
-  forge list-open [REPO]
-  forge comment ISSUE BODY
-  forge label-add ISSUE LABEL
-  forge state ISSUE
+  forge [--forge oracle|work] list-open [REPO]
+  forge [--forge oracle|work] comment ISSUE BODY
+  forge [--forge oracle|work] label-add ISSUE LABEL
+  forge [--forge oracle|work] state ISSUE
 
-Environment:
-  FORGE_URL, FORGE_TOKEN, FORGE_USER
-  FORGE_REPO          default: glg-bot/sandbox
-  FORGE_BOT_FOOTER    default: — glg-bot [gpt-5.5 / oracle]
+Profile selection (priority):
+  1. --forge <profile> flag
+  2. FORGE_PROFILE env var
+  3. cwd pattern:  */repos/work/*  → work
+                   */repos/gh/*    → oracle
+                   (else)          → error: ambiguous cwd, must pass --forge/FORGE_PROFILE
+
+Legacy env value fallback (URL/TOKEN only):
+  If a profile's prefixed env is missing, unprefixed FORGE_URL/FORGE_TOKEN
+  is consulted last — this is the host-scoped switching path from ~/.env.local
+  (only relevant when ssh'd directly into oracle or work).
+  FORGE_REPO has NO unprefixed fallback (leak-prevention).
+
+Profile-prefixed env (~/.env.local SSOT):
+  ORACLE_FORGE_URL,   ORACLE_FORGE_TOKEN,   ORACLE_FORGE_USER,   [ORACLE_FORGE_REPO]
+  WORK_FORGE_URL,  WORK_FORGE_TOKEN,  WORK_FORGE_USER,  [WORK_FORGE_REPO]
+
+Defaults:
+  FORGE_REPO          oracle: glg-bot/sandbox.  work: must be set or passed.
+  FORGE_BOT_FOOTER    — glg-bot [<FORGE_MODEL or "unknown"> / <~/.current-device>]
 EOF
 }
 
+resolve_profile() {
+  # 1. already set explicitly (--forge or env) → use as-is
+  if [ -n "${FORGE_PROFILE:-}" ]; then
+    return
+  fi
+  # 2. cwd pattern — only explicit anchors. Neutral cwd ($HOME, ~/org, ~/Downloads…)
+  #    is treated as ambiguous and refuses to default, so a mutating command never
+  #    auto-targets the wrong instance.
+  case "$PWD/" in
+    */repos/work/*) FORGE_PROFILE="work" ;;
+    */repos/gh/*)   FORGE_PROFILE="oracle"  ;;
+    *)
+      echo "ERROR: cwd ($PWD) is neither under repos/work/* nor repos/gh/*." >&2
+      echo "       Pass --forge oracle|work or set FORGE_PROFILE." >&2
+      exit 2 ;;
+  esac
+}
+
+apply_profile() {
+  # NOTE: FORGE_REPO is set from profile-specific sources only.
+  # Unprefixed FORGE_REPO from the parent shell is intentionally ignored to prevent
+  # leaks across profiles (e.g. oracle's `glg-bot/sandbox` accidentally targeting
+  # a same-named repo on work).
+  case "$FORGE_PROFILE" in
+    oracle)
+      FORGE_URL="${ORACLE_FORGE_URL:-${FORGE_URL:-}}"
+      FORGE_TOKEN="${ORACLE_FORGE_TOKEN:-${FORGE_TOKEN:-}}"
+      FORGE_USER="${ORACLE_FORGE_USER:-${FORGE_USER:-glg-bot}}"
+      FORGE_REPO="${ORACLE_FORGE_REPO:-glg-bot/sandbox}"
+      ;;
+    work)
+      FORGE_URL="${WORK_FORGE_URL:-${FORGE_URL:-}}"
+      FORGE_TOKEN="${WORK_FORGE_TOKEN:-${FORGE_TOKEN:-}}"
+      FORGE_USER="${WORK_FORGE_USER:-${FORGE_USER:-glg-bot}}"
+      FORGE_REPO="${WORK_FORGE_REPO:-}"
+      ;;
+    *)
+      echo "ERROR: unknown FORGE_PROFILE='$FORGE_PROFILE' (expected: oracle|work)" >&2
+      exit 2
+      ;;
+  esac
+}
+
+# stderr observability for mutating commands — the operator should always see
+# which (profile, repo, url) a write is going against before it lands.
+log_context() {
+  echo "[forge] profile=$FORGE_PROFILE repo=${DEFAULT_REPO:-<unset>} url=$FORGE_URL" >&2
+}
+
+build_default_footer() {
+  host_short=$(cat "$HOME/.current-device" 2>/dev/null || echo unknown)
+  model_short="${FORGE_MODEL:-unknown}"
+  # First format-arg never starts with '-' (em-dash is U+2014), so `--` is unnecessary
+  # and unsafe under strict POSIX printf.
+  printf '%s glg-bot [%s / %s]' "—" "$model_short" "$host_short"
+}
+
 require_env() {
-  : "${FORGE_URL:?FORGE_URL is required}"
-  : "${FORGE_TOKEN:?FORGE_TOKEN is required}"
+  resolve_profile
+  apply_profile
+  : "${FORGE_URL:?FORGE_URL is required (profile=$FORGE_PROFILE — set ${FORGE_PROFILE}_FORGE_URL in ~/.env.local)}"
+  : "${FORGE_TOKEN:?FORGE_TOKEN is required (profile=$FORGE_PROFILE)}"
   : "${FORGE_USER:=glg-bot}"
-  : "${FORGE_REPO:=glg-bot/sandbox}"
-  : "${FORGE_BOT_FOOTER:=— glg-bot [gpt-5.5 / oracle]}"
+  # Always rebuild footer from FORGE_MODEL + ~/.current-device.
+  # Any inherited FORGE_BOT_FOOTER from parent shells is intentionally ignored —
+  # footer format is policy, only the model slot is per-session.
+  FORGE_BOT_FOOTER=$(build_default_footer)
   DEFAULT_REPO="$FORGE_REPO"
   API="${FORGE_URL%/}/api/v1"
 }
@@ -107,12 +184,24 @@ cmd_state() {
     end'
 }
 
+# Pre-parse profile override flag(s) before the command verb.
+while [ "$#" -gt 0 ]; do
+  case "${1:-}" in
+    --forge)
+      [ "$#" -ge 2 ] || { echo "--forge needs a value (oracle|work)" >&2; exit 2; }
+      FORGE_PROFILE="$2"; shift 2 ;;
+    --forge=*)
+      FORGE_PROFILE="${1#--forge=}"; shift ;;
+    *) break ;;
+  esac
+done
+
 cmd="${1-}"
 case "$cmd" in
   -h|--help|help|"") usage ;;
   list-open) require_env; shift; cmd_list_open "$@" ;;
-  comment) require_env; shift; cmd_comment "$@" ;;
-  label-add) require_env; shift; cmd_label_add "$@" ;;
-  state) require_env; shift; cmd_state "$@" ;;
+  comment)   require_env; log_context; shift; cmd_comment "$@" ;;
+  label-add) require_env; log_context; shift; cmd_label_add "$@" ;;
+  state)     require_env; shift; cmd_state "$@" ;;
   *) echo "unknown command: $cmd" >&2; usage >&2; exit 2 ;;
 esac

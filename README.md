@@ -70,9 +70,24 @@
 | **agent surface** | `agent-config/skills/forge/` | thin pointer — this repo 가 SSOT |
 | **개별 작업 repo** | nixos-config / openclaw / pi-shell-acp / ... | 각자 AGENTS.md 가진 담당자 자리 |
 
+## Fork 친화 — 자기 운영에 맞추기
+
+이 repo 는 **GLG 의 운영 컨벤션** 위에 박혀있다 (`oracle` + `work` 두 profile). 다른 사람이 fork 해서 자기 forge 운영면으로 쓰려면 아래 자리만 자기 환경에 맞게 수정하면 된다.
+
+| 자리 | 내용 | 수정 방법 |
+|---|---|---|
+| **profile 이름** | `bin/forge` 에 `oracle`/`work` hardcode | `apply_profile()` 의 case 분기를 자기 운영 이름으로 (예: `personal`/`vps`) |
+| **cwd anchor** | `bin/forge` 에 `*/repos/work/*` → work, `*/repos/gh/*` → oracle | `resolve_profile()` 의 case 분기를 자기 디렉토리 컨벤션에 맞게 |
+| **환경 변수 prefix** | `WORK_FORGE_*` / `ORACLE_FORGE_*` | 동일 — profile 이름과 맞춰서 |
+| **머신 정체성 SSOT** | `~/.current-forge-profile` 에 profile 이름 박음 (직접 접속 호스트만, 클라이언트는 비워둠) | 그대로 사용 가능 |
+| **라벨 5종** | `agent:ready/running/done` 등 | 봇멘트 패턴이라 그대로 권장 |
+| **footer 형식** | `— glg-bot [model / host]` | 자기 봇 이름으로 (`bin/forge` build_default_footer) |
+
+운영 누적되어 3번째 profile 추가 시점이 v2 (등록제 외부화) 진짜 필요 시점. 그때까지 v1 의 hardcode 는 정직한 트레이드오프.
+
 ## 상태
 
-🏗️ **Spike 0 — 봇멘트 fork** (예정). 코드는 아직 없음. README / AGENTS / NEXT 만 박힌 단계.
+✅ **v1 박힘 (2026-05-27)** — `bin/forge` 4-command minimal + multi-profile (oracle + work) + footer 자동 조립 + mutating observability. 양쪽 forge round-trip 검증 통과.
 
 다음 단계는 [NEXT.md](./NEXT.md) 참고.
 담당자 지침은 [AGENTS.md](./AGENTS.md).

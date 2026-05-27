@@ -72,12 +72,12 @@ Forgejo 인스턴스 위에 얹힌 운영 layer — 인프라가 아니라 **정
 | `human:needs-review` | `#5319e7` | 사람 판단 필요 |
 | `ci:failed` | `#d73a4a` | CI 깨짐 |
 
-## bin/forge — minimal 4-command
+## bin/forge — minimal 4-command (multi-profile)
 
-위치: `~/repos/gh/forge-config/bin/forge`. 환경 변수는 `FORGE_URL`, `FORGE_TOKEN`, `FORGE_USER`를 사용한다. 기본 repo는 `glg-bot/sandbox`.
+위치: `~/repos/gh/forge-config/bin/forge`. **profile 시스템**으로 oracle/work 두 인스턴스를 한 손에서 운영한다.
 
 ```bash
-# 열린 이슈 목록. REPO 생략 시 glg-bot/sandbox
+# 열린 이슈 목록. REPO 생략 시 현 profile 의 default repo
 bin/forge list-open [REPO]
 
 # 이슈 상태 + 라벨 + 최근 코멘트 요약
@@ -88,9 +88,78 @@ bin/forge comment ISSUE "본문"
 
 # 라벨 이름으로 ID를 조회해 부착
 bin/forge label-add ISSUE "agent:running"
+
+# 명시적 profile override
+bin/forge --forge work list-open glg-bot/<work-repo>
+FORGE_PROFILE=oracle bin/forge state glg-bot/sandbox#1
 ```
 
-이슈 인자는 `1`처럼 숫자만 주면 기본 repo, `owner/repo#1`처럼 주면 해당 repo를 가리킨다.
+이슈 인자는 `1`처럼 숫자만 주면 현 profile 의 default repo, `owner/repo#1`처럼 주면 해당 repo를 가리킨다.
+
+## 다중 호스트 정책 — profile 시스템 (2026-05-27 영속)
+
+운영 머신과 forge 인스턴스를 분리한다. **thinkpad 에서 양쪽 forge 다 굴린다** —
+세션이 thinkpad 에 남아야 andenken 임베딩이 동작하므로, 작업 머신은 가급적
+thinkpad 로 모으고 forge 인스턴스는 컨텍스트로 결정한다.
+
+### Profile 자동 결정 (bin/forge 가 호출 시점에 수행)
+
+우선순위:
+1. `--forge oracle|work` 플래그
+2. `FORGE_PROFILE` env
+3. **cwd 패턴 — 명시 anchor 만**:
+   - `*/repos/work/*` → `work`
+   - `*/repos/gh/*` → `oracle`
+   - **그 외 → 에러**. silent default 금지 (중립 cwd 에서 mutating 사고 방지).
+4. Legacy env value fallback — URL/TOKEN 만. profile-prefixed 가 비어있을 때 unprefixed `FORGE_URL`/`FORGE_TOKEN` 참조 (host-scoped switching 결과, oracle/work 직접 접속 시에만 의미). **`FORGE_REPO` 는 fallback 없음** — 인스턴스 간 leak 방지 (oracle 의 `glg-bot/sandbox` 가 work 의 동명 repo 로 잘못 가는 사고 차단).
+
+### Mutating 명령 stderr observability
+
+`comment` / `label-add` 호출 시 stderr 에 한 줄:
+
+```
+[forge] profile=oracle repo=glg-bot/sandbox url=https://forge.junghanacs.com
+```
+
+→ 잘못된 인스턴스/repo 에 write 들어가기 전 즉시 인지. `FORGE_PROFILE` env 가 셸에 잔류해 cwd 보다 우선될 때의 사고도 같은 표면으로 잡힌다.
+
+### 인스턴스 매핑
+
+| profile | URL | 주력 영역 | default repo |
+|---|---|---|---|
+| `oracle` | `https://forge.junghanacs.com` | `~/repos/gh/*` (개인/공개) | `glg-bot/sandbox` (또는 `ORACLE_FORGE_REPO`) |
+| `work` | `https://<work-forge-host>/forge` | `~/repos/work/*` (회사 mirror) | 없음 — 인자 명시 또는 `WORK_FORGE_REPO` |
+
+### 시크릿 자리 — `~/.env.local`
+
+```bash
+# Profile 원천 (bin/forge 가 직접 읽음)
+export ORACLE_FORGE_URL="https://forge.junghanacs.com"
+export ORACLE_FORGE_TOKEN="..."
+export ORACLE_FORGE_USER="glg-bot"
+
+export WORK_FORGE_URL="https://<work-forge-host>/forge"
+export WORK_FORGE_TOKEN="..."
+export WORK_FORGE_USER="glg-bot"
+
+# (선택) 머신 정체성 fallback — 이 머신이 어느 forge 의 *직접 접속 호스트* 인지
+# SSOT 는 `~/.current-forge-profile` (hostname SSOT 인 ~/.current-device 와 분리)
+case "$(cat ~/.current-forge-profile 2>/dev/null)" in
+    work)   export FORGE_URL="$WORK_FORGE_URL"   ;;
+    oracle) export FORGE_URL="$ORACLE_FORGE_URL" ;;
+    *)      ;;  # 클라이언트 머신 (thinkpad/laptop/nuc 등) — 비워둠. bin/forge cwd 결정에 위임
+esac
+```
+
+### 머신별 셋업
+
+| 머신 | 정체성 | `~/.current-forge-profile` |
+|---|---|---|
+| oracle | "oracle forge 의 호스트" | `echo oracle > ~/.current-forge-profile` |
+| 회사 머신 | "work forge 의 호스트" | `echo work > ~/.current-forge-profile` |
+| thinkpad / laptop / nuc 등 | 양쪽의 **클라이언트** (호스트 아님) | **없음** — bin/forge 가 cwd 로 매번 결정 |
+
+`~/.current-forge-profile` 의 의미는 "이 머신은 어느 forge 의 *직접 접속 호스트* 인가". 클라이언트 머신은 어느 forge 에도 *속하지* 않으므로 비워두는 게 정체성. hostname SSOT 인 `~/.current-device` 와는 분리.
 
 ## sibling 호출 패턴
 
@@ -107,19 +176,25 @@ forge-config 는 **forwarding 권한이 있다** — 단, 명백한 영역 분�
 
 ## 봇 footer 서명 — 자기 식별
 
-forge 에 코멘트 작성 시 본문 마지막에 다음 형식을 붙인다. `bin/forge comment`는 기본 footer를 자동 삽입한다.
+forge 에 코멘트 작성 시 본문 마지막에 다음 형식을 붙인다. `bin/forge comment`는 기본 footer 를 자동 조립해 삽입한다.
 
 ```
 — glg-bot [<model> / <host>]
 ```
 
-예:
-- `— glg-bot [gpt-5.5 / oracle]`
-- `— glg-bot [claude-opus-4-7 / oracle]`
-- `— glg-bot [pi-codex / nuc]`
-- `— glg-bot [claude-code / laptop]`
+자동 조립 규칙:
 
-`<host>`는 세션 시작 hook의 `device=` 값을 우선 사용한다. 보이지 않으면 `cat ~/.current-device`로 확인한다. 자동 판별이 실패하면 명시적으로 적고, 불확실한 값은 쓰지 않는다.
+- `model` = `$FORGE_MODEL` (없으면 `unknown`)
+- `host` = `cat ~/.current-device` (없으면 `unknown`) — **작업 머신**이며 forge 인스턴스가 아니다
+- `$FORGE_BOT_FOOTER` env 는 **무시한다**. 매 호출마다 fresh 조립 — 부모 셸의 깨진 잔재 env 가 발현될 표면을 닫는다. 모델만 `FORGE_MODEL` 로 customize.
+
+예:
+- `— glg-bot [claude-opus-4-7 / thinkpad]` — thinkpad 에서 일하는 클로드
+- `— glg-bot [gpt-5.5 / oracle]` — oracle 에 직접 ssh 들어간 GPT
+- `— glg-bot [pi-codex / nuc]` — NUC 의 pi
+- `— glg-bot [claude-code / laptop]` — 노트북의 Claude Code
+
+세션 초에 `export FORGE_MODEL="claude-opus-4-7"` 한 줄이면 footer 가 정확해진다. host 는 `~/.current-device` 가 SSOT — 자동 판별 실패 시 그 파일을 정정.
 
 이 서명이 빠지면 봇멘트 패턴과의 일관성이 깨진다.
 
