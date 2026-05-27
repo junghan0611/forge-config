@@ -16,6 +16,7 @@
 - ✅ agent skill thin pointer 박힘: `agent-config/skills/forge/SKILL.md` 가 `~/repos/gh/forge-config/bin/forge` SSOT 가리킴. `ghcli` 패턴 (scripts/ 폴더 제거, SKILL.md 단일). 동사 4개 / footer 자동 조립 / 라벨 5개 — bin/forge 와 정합 (2026-05-27).
 - ✅ `bin/forge` multi-profile (oracle + work) — `--forge` 플래그 / `FORGE_PROFILE` env / cwd 패턴 자동 결정. thinkpad 에서 양쪽 forge round-trip 검증 통과 (2026-05-27).
 - ✅ 머신 정체성 SSOT 분리 — `~/.current-forge-profile` 도입. hostname SSOT (`~/.current-device`) 와 forge profile 결정 SSOT 분리. 직접 접속 호스트 (oracle/work) 만 박고 클라이언트 머신 (thinkpad/laptop/nuc) 은 비워둠. `.env.local` 의 case 분기 입력 갱신, AGENTS.md / SKILL.md 예시 정합 (2026-05-27).
+- ✅ `issue-create` 동사 추가 — 5번째 동사. v1.5 박힘. sweeper 의 일차 입력 자리. atomic 라벨 옵션 (`--labels`), footer 자동 부착, default repo fallback. work forge 이슈 요청 응답 + oracle sandbox 5단계 round-trip 검증 통과. (2026-05-27)
 - 🔄 alskdjf 인프라 — 힣이 직접 구축 중 (2026-05-27). work forge 가동 검증 통과 (v15.0.2). 운영 양식: **mirror (M)** — 코드 SSOT 외부 GitHub, Forgejo 는 봇 운영면(이슈/라벨/PR 자동화). oracle 의 *짝(paired)* 패턴과 분기된 자리. work 토큰 이중화(pass + ~/.env.local prefix 변수). multi-host 처리는 `~/.env.local` host-scoped case + `~/.current-device` 로 해결 (아래 "미루어도 되는 것" 참조)
 
 ## 다음 한 걸음 — 결정/대기 항목
@@ -79,6 +80,8 @@ forge-config/
 
 ## v2 후보 — 운영 누적 후 다시 보기
 
+- **`label-remove` / `label-set` 동사** — 현재 `label-add` 만 있어 라벨 누적 (`agent:ready,agent:running,agent:done`). 상태 라벨 (agent:*) 은 mutual exclusive 가 정합 — `label-set agent:done` 이 `agent:running` 같은 이전 상태 라벨 자동 제거하는 동사 필요.
+- **Forge webhook → auto-agent 루프** — Copilot Coding Agent 패턴. issue created (특정 라벨 화이트리스트) → webhook receiver (work-host) → claude code headless spawn → 작업 후 PR/코멘트 회수 → 라벨 전이. work-host docker compose 어디 박을지 + openclaw acpx 와의 경계 spike 필요. **회사일 우선** = work 자리 먼저, oracle 자동화는 나중.
 - **Profile 등록 외부화** — 현재 `bin/forge` 는 `oracle` / `work` 두 profile 만 hardcode. fork 사용자가 자기 운영 (`personal`/`vps`/`homelab` 등) 으로 자유롭게 추가하려면 `FORGE_PROFILES` env 등록제로 외부화 필요. POSIX sh 의 indirect 변수 expansion 한계로 `eval` 의존 — v1 운영 안정 후 검토.
 - **URL sanity 검증** — `bin/forge` 에 `https?://` 형식 검사 박기. 현재는 깨진 unprefixed 잔재가 들어와도 `curl: Bad hostname` 으로 실패하지만 명시적 검증이 운영 안전성 ↑.
 - **Footer hostname 노출 정책** — 회사 머신에서 oracle forge 에 코멘트 시 footer 에 회사 hostname 박힘. `FORGE_HOST_LABEL` override env 도입, 또는 운영 룰 (각 머신은 자기 host 의 forge 만) 로 처리.

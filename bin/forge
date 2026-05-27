@@ -5,9 +5,18 @@ usage() {
   cat <<'EOF'
 Usage:
   forge [--forge oracle|work] list-open [REPO]
+  forge [--forge oracle|work] state ISSUE
   forge [--forge oracle|work] comment ISSUE BODY
   forge [--forge oracle|work] label-add ISSUE LABEL
-  forge [--forge oracle|work] state ISSUE
+  forge [--forge oracle|work] issue-create [REPO] TITLE BODY [--labels L1,L2,...]
+
+ISSUE forms:
+  N                  → current profile's default repo (e.g. "1")
+  owner/repo#N       → explicit (e.g. "glg-bot/sandbox#1")
+REPO forms (for list-open / issue-create):
+  owner/repo         → explicit
+  repo               → "<FORGE_USER>/repo"
+  (omitted)          → default repo per profile
 
 Profile selection (priority):
   1. --forge <profile> flag
@@ -170,6 +179,83 @@ cmd_label_add() {
   api POST "/repos/$repo/issues/$num/labels" "$payload" | jq -r '"labels=[\([.[].name] | join(","))]"'
 }
 
+cmd_issue_create() {
+  # Forms:
+  #   issue-create REPO TITLE BODY [--labels L1,L2,...]
+  #   issue-create TITLE BODY      [--labels L1,L2,...]   (uses DEFAULT_REPO)
+  # First positional is REPO iff it contains '/'. Otherwise it's TITLE.
+  labels_csv=""
+  positional=""
+  NL=$(printf '\nx'); NL="${NL%x}"  # POSIX-safe newline literal
+
+  # Strip --labels from args, keep rest positional in order.
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --labels)
+        [ "$#" -ge 2 ] || { echo "--labels needs a value (comma-separated)" >&2; exit 2; }
+        labels_csv="$2"; shift 2 ;;
+      --labels=*)
+        labels_csv="${1#--labels=}"; shift ;;
+      *)
+        # Build positional list, one arg per line. NOTE: this means individual args
+        # must not contain literal newlines themselves (would split into 2 positionals).
+        # Single-line title and single-line body cover v1 sweeper use-case.
+        positional="${positional}${1}${NL}"
+        shift ;;
+    esac
+  done
+
+  # Parse positional. Use a temp file to handle multi-line title/body safely.
+  pos_count=$(printf '%s' "$positional" | grep -c '^' || true)
+  if [ "$pos_count" -lt 2 ] || [ "$pos_count" -gt 3 ]; then
+    echo "ERROR: issue-create needs TITLE BODY (and optional REPO as first arg)" >&2
+    exit 2
+  fi
+
+  if [ "$pos_count" -eq 3 ]; then
+    repo_arg=$(printf '%s' "$positional" | sed -n '1p')
+    title=$(printf '%s' "$positional" | sed -n '2p')
+    body=$(printf '%s' "$positional" | sed -n '3p')
+    case "$repo_arg" in
+      */*) repo="$(repo_path "$repo_arg")" ;;
+      *)   echo "ERROR: REPO arg must look like 'owner/repo' (got '$repo_arg'). To use default repo, pass only TITLE BODY." >&2; exit 2 ;;
+    esac
+  else
+    title=$(printf '%s' "$positional" | sed -n '1p')
+    body=$(printf '%s' "$positional" | sed -n '2p')
+    [ -n "$DEFAULT_REPO" ] || { echo "ERROR: no REPO arg and no default repo (profile=$FORGE_PROFILE has no FORGE_REPO). Pass owner/repo as first arg." >&2; exit 2; }
+    repo="$(repo_path "$DEFAULT_REPO")"
+  fi
+
+  [ -n "$title" ] || { echo "ERROR: empty title" >&2; exit 2; }
+  [ -n "$body" ] || { echo "ERROR: empty body" >&2; exit 2; }
+
+  # Resolve label names → ids (one API GET).
+  label_ids_json="[]"
+  if [ -n "$labels_csv" ]; then
+    labels_json=$(api GET "/repos/$repo/labels")
+    label_ids_json=$(printf '%s' "$labels_csv" | tr ',' '\n' | jq -R -s --argjson all "$labels_json" '
+      split("\n") | map(select(length > 0)) as $names
+      | $names | map(. as $n | ($all | map(select(.name == $n) | .id) | first))
+      | if any(. == null) then
+          ($names | map(select(. as $n | ($all | map(.name) | index($n)) == null))) as $missing
+          | error("label(s) not found: " + ($missing | join(", ")))
+        else .
+        end
+    ')
+  fi
+
+  # Body footer auto-append (same policy as `comment`).
+  full_body=$(printf '%s\n\n%s' "$body" "$FORGE_BOT_FOOTER")
+  payload=$(jq -n \
+    --arg t "$title" \
+    --arg b "$full_body" \
+    --argjson labels "$label_ids_json" \
+    '{title:$t, body:$b, labels:$labels}')
+
+  api POST "/repos/$repo/issues" "$payload" | jq -r '"issue #\(.number) created at \(.html_url)\nlabels=[\([.labels[].name] | join(","))]"'
+}
+
 cmd_state() {
   [ "$#" -eq 1 ] || { usage >&2; exit 2; }
   issue="$1"
@@ -199,9 +285,10 @@ done
 cmd="${1-}"
 case "$cmd" in
   -h|--help|help|"") usage ;;
-  list-open) require_env; shift; cmd_list_open "$@" ;;
-  comment)   require_env; log_context; shift; cmd_comment "$@" ;;
-  label-add) require_env; log_context; shift; cmd_label_add "$@" ;;
-  state)     require_env; shift; cmd_state "$@" ;;
+  list-open)    require_env; shift; cmd_list_open "$@" ;;
+  state)        require_env; shift; cmd_state "$@" ;;
+  comment)      require_env; log_context; shift; cmd_comment "$@" ;;
+  label-add)    require_env; log_context; shift; cmd_label_add "$@" ;;
+  issue-create) require_env; log_context; shift; cmd_issue_create "$@" ;;
   *) echo "unknown command: $cmd" >&2; usage >&2; exit 2 ;;
 esac

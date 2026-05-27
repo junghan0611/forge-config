@@ -72,7 +72,7 @@ Forgejo 인스턴스 위에 얹힌 운영 layer — 인프라가 아니라 **정
 | `human:needs-review` | `#5319e7` | 사람 판단 필요 |
 | `ci:failed` | `#d73a4a` | CI 깨짐 |
 
-## bin/forge — minimal 4-command (multi-profile)
+## bin/forge — minimal 5-command (multi-profile)
 
 위치: `~/repos/gh/forge-config/bin/forge`. **profile 시스템**으로 oracle/work 두 인스턴스를 한 손에서 운영한다.
 
@@ -88,6 +88,11 @@ bin/forge comment ISSUE "본문"
 
 # 라벨 이름으로 ID를 조회해 부착
 bin/forge label-add ISSUE "agent:running"
+
+# 이슈 생성 (sweeper 의 일차 입력 자리)
+bin/forge issue-create REPO "Title" "Body"
+bin/forge issue-create REPO "Title" "Body" --labels agent:ready
+bin/forge issue-create "Title" "Body"   # REPO 생략 시 default repo
 
 # 명시적 profile override
 bin/forge --forge work list-open glg-bot/<work-repo>
