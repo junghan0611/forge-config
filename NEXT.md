@@ -2,9 +2,9 @@
 
 > 끝나지 않은 일과 후속 검증 항목. 영속 baseline 은 [AGENTS.md](./AGENTS.md), 이 문서는 *지금 시점의 다음 한 걸음*.
 
-## 에이전트 자동화 루프 — 우리가 받아야 할 본 작업 (2026-05-27 진입)
+## 에이전트 자동화 루프 — 본 작업 진입 (2026-05-27 큰 산 넘음)
 
-forge-config 는 그동안 **CLI/SSOT/라벨 protocol** 자리였다. 오늘부터 그 위에 **hook-driven auto-agent loop** 가 얹힌다. openclaw 쪽 (`~/openclaw`) 에서 Phase 1 진입. 다 끝나면 forge-config 가 받아서 튜닝하는 자리.
+forge-config 는 그동안 **CLI/SSOT/라벨 protocol** 자리였다. 오늘 그 위에 **hook-driven auto-agent loop** 가 얹혔다. openclaw / openglg-config / forge-config / agent-config 네 자리 정합 + Phase 0~2 외부 라이브 round-trip 통과. **다음부터는 운영면 튜닝 / 확장 자리**.
 
 ### 루프 형상
 
@@ -19,14 +19,17 @@ Forgejo issue/label/comment 이벤트
 
 봇멘트(remark42 댓글 자동화)의 코드면 짝. 사람이 라벨만 토글하면 봇이 사이클을 굴리는 자리.
 
-### 박힌 표면 (외부)
+### 박힌 표면 — Phase 0/1/2 통과 (2026-05-27)
 
-- ✅ **Caddy bypass 라이브** (2026-05-27 09:10 직후) — `https://<work-host>/openclaw/hooks/forgejo` exact path bypass. `X-Forgejo-Delivery → X-OpenClaw-Idempotency-Key` 헤더 자동 복사. 외부 401 응답 확인 (Caddy 통과 → OpenClaw hook token gate 거부 = 의도 정확). openglg-config `2166fe0`.
-- ✅ **OpenClaw Phase 0** (`~/openclaw` `7efb9ca`) — hooks API 라이브 통과. idempotency replay dedup / interactive session 격리 / hook session jsonl 분리 검증.
+- ✅ **Phase 0 — OpenClaw hooks API 라이브** (`~/openclaw` `7efb9ca`, 09:08 KST) — idempotency replay dedup (`buildHookReplayCacheKey` dispatchScope 함정 박제, NEXT 보강 #10) / interactive session 격리 / hook session jsonl 분리 검증.
+- ✅ **Caddy bypass 라이브** (09:10 직후) — `https://<work-host>/openclaw/hooks/forgejo` exact path bypass. `X-Forgejo-Delivery → X-OpenClaw-Idempotency-Key` 헤더 자동 복사. 외부 401 응답 확인 (Caddy 통과 → OpenClaw hook token gate 거부 = 의도 정확). openglg-config `2166fe0`.
+- ✅ **Phase 1 — forge agent + workspace-forge/ + hooks.mappings** — `~/openclaw/workspace-forge/{IDENTITY,AGENTS,SOUL,USER,TOOLS}.md` 5파일 박힘 (hook-only 캐릭터, HEARTBEAT/MEMORY/DREAMS 없음). `agents.list[forge]` (openai/gpt-5.4 Codex) + `hooks.mappings[forgejo-raw]` + `allowedAgentIds: ["forge"]` 좁힘.
+- ✅ **Phase 2 — Forgejo webhook 라이브 round-trip** (09:40 직후) — `glg-bot/sandbox` webhook (id=4) 박힘, `agent:ready` 라벨 토글 → 외부 trigger → forge agent 깨어남 → 5 step 사이클 → 라벨 전이 + 코멘트 round-trip 통과. **봇멘트 패턴의 코드면 짝이 처음 자율로 동작한 자리**.
+- ✅ **FORGE_MODEL=gpt-5.4 박힘** — `~/openclaw/.env`. footer 자동 조립 `[gpt-5.4 / <work-host>]` 검증. 단일 정체성 함정 자리는 아래 튜닝 후속에 박힘.
 
-### forge-config 가 받을 자리 (튜닝 후속)
+### forge-config 가 받을 자리 (튜닝 후속, 운영 누적 후)
 
-openclaw Phase 1/2 가 박힌 뒤 이쪽에서 처리.
+Phase 0/1/2 끝났으니 이쪽에서 다듬는 자리. 운영 한 사이클 굴려 자취 본 뒤 결정.
 
 - **`FORGE_MODEL` env 자리 — 단일 정체성 정공법 함정** (2026-05-27 발견, 운영 안정화 후 결정) — `~/.openclaw/.env` 에 `FORGE_MODEL=gpt-5.4` 박힘. OpenClaw gateway global env 라 *모든 agent process* (main/voc/forge) 가 같은 값 상속. bin/forge 는 호출자가 누구인지 신경 안 씀 (L97/L112). 영향:
 
@@ -58,6 +61,17 @@ openclaw Phase 1/2 가 박힌 뒤 이쪽에서 처리.
 - **dedup cache key 함정 가드** — `messageTemplate` 에 `now()` / timestamp 박지 말 것. `buildHookReplayCacheKey` 의 `dispatchScope` 가 message 까지 포함해 dedup 함 (openclaw NEXT 보강 #10). forge-config 의 SKILL.md / AGENTS.md 에 운영 룰로 박을 자리.
 - **HMAC 검증 v2** — Phase 5 후속. 현재 D안 (`hooks.mappings.transform`) 에 raw body 안 들어와 HMAC 정확 검증 불가. 운영 누적 후 (a) OpenClaw upstream 기여 / (b) 얇은 forge-bus adapter 부활 / (c) Caddy 확장 모듈 셋 중 결정.
 
+### 다음 세션 cold pickup 자리
+
+| 자리 | 소요 | 우선순위 | 시점 신중도 |
+|---|---|---|---|
+| **A. glg-bot/voscli 에 같은 webhook 적용** (운영 확장) | 10분 | 운영 가치 ↑ | ⚠️ 회사 동료 (원민재님) 가 보는 자리. sandbox#2 사이클 자취 한 번 검토 후. forge agent 첫 코멘트 톤 사람이 보고 가는 자리 |
+| **B. label-remove / label-set 동사 (v2)** | 30분~1시간 | 미관 자리 | 운영 누적 후 라벨 누적 (`ready,running,done`) 이 신호 노이즈로 발현될 때. 미리 박지 말 것 |
+| **C. workspace-forge/ 5파일 정체성 미세 어긋남** (아래 튜닝 후속 #2) | 15분 | 낮음 | 운영 한 사이클 라이브 자취 본 뒤 |
+| **D. FORGE_MODEL agent-specific env 정공법** (아래 튜닝 후속 #1) | 30분 | 잠재 위험 | main 봇이 어쩌다 forge skill 부르는 자리 발견되면 즉시 |
+
+추천 순서: **A 먼저 (운영 실 가치) → C/D 는 라이브 자취 본 뒤**. A 진입 전 sandbox 한 사이클 자취 확인 자리.
+
 ### Webhook 자동 등록 — 별도 도구 X (2026-05-27 결정)
 
 질문: forge-config 에 `bin/forge webhook-register` 같은 동사 박아야 하나?
@@ -85,7 +99,9 @@ openclaw Phase 1/2 가 박힌 뒤 이쪽에서 처리.
 
 ---
 
-## 지금 상태 (2026-05-27 KST 10:53)
+## 지금 상태 (2026-05-27 KST 큰 산 넘음)
+
+오늘 박힌 자취는 위 § "에이전트 자동화 루프" 에 영속화. 본 섹션은 그 이전부터의 누적 자리.
 
 - ✅ Oracle 인프라 가동: `https://forge.junghanacs.com` (Forgejo 15.0.2)
 - ✅ admin user `junghanacs` 생성
