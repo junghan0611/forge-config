@@ -69,8 +69,9 @@ Phase 0/1/2 끝났으니 이쪽에서 다듬는 자리. 운영 한 사이클 굴
 | **B. label-remove / label-set 동사 (v2)** | 30분~1시간 | 미관 자리 | 운영 누적 후 라벨 누적 (`ready,running,done`) 이 신호 노이즈로 발현될 때. 미리 박지 말 것 |
 | **C. workspace-forge/ 5파일 정체성 미세 어긋남** (아래 튜닝 후속 #2) | 15분 | 낮음 | 운영 한 사이클 라이브 자취 본 뒤 |
 | **D. FORGE_MODEL agent-specific env 정공법** (아래 튜닝 후속 #1) | 30분 | 잠재 위험 | main 봇이 어쩌다 forge skill 부르는 자리 발견되면 즉시 |
+| **E. forge repo 발견성 — `glg-bot/forge-config#1`** | 30분~1시간 | 신뢰 자리 | vocbot 이 도구·스킬 다 줬는데도 forge repo path 못 찾고 GitHub-style `teamgoqual/*` 로 빙빙 돔 (2026-05-27 19:42 KST). 후보 A/B/C/D 비교 후 결정 |
 
-추천 순서: **A 먼저 (운영 실 가치) → C/D 는 라이브 자취 본 뒤**. A 진입 전 sandbox 한 사이클 자취 확인 자리.
+추천 순서: **A 먼저 (운영 실 가치) → E 는 신뢰 자취 회복 자리 (운영 봇이 봇멘트면처럼 발화하려면 발견성 보장 필수) → C/D 는 라이브 자취 본 뒤**. A 진입 전 sandbox 한 사이클 자취 확인 자리.
 
 ### Webhook 자동 등록 — 별도 도구 X (2026-05-27 결정)
 
