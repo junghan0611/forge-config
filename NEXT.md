@@ -2,7 +2,7 @@
 
 > 끝나지 않은 일과 후속 검증 항목. 영속 baseline 은 [AGENTS.md](./AGENTS.md), 이 문서는 *지금 시점의 다음 한 걸음*.
 
-## 지금 상태 (2026-05-27 KST 10:50)
+## 지금 상태 (2026-05-27 KST 10:53)
 
 - ✅ Oracle 인프라 가동: `https://forge.junghanacs.com` (Forgejo 15.0.2)
 - ✅ admin user `junghanacs` 생성
@@ -13,8 +13,8 @@
 - ✅ GitHub remote: `junghan0611/forge-config` (공개면)
 - ✅ Forgejo repo: `glg-bot/forge-config` (운영면 — 라벨 5개 박힘). GitHub의 짝
 - ✅ AGENTS.md 운영 사실 영속화 (라벨/forge cmd/footer/secret)
-- 🔄 agent skill surface — forge-config 담당자 별도 세션 디자인 중
-- 🔄 alskdjf 인프라 — 힣이 직접 구축 중 (2026-05-27)
+- ✅ agent skill thin pointer 박힘: `agent-config/skills/forge/SKILL.md` 가 `~/repos/gh/forge-config/bin/forge` SSOT 가리킴. `ghcli` 패턴 (scripts/ 폴더 제거, SKILL.md 단일). 동사 4개 / env 변수명(`FORGE_URL`) / footer 단일 패턴 / 라벨 5개 — bin/forge 와 정합 (2026-05-27).
+- 🔄 alskdjf 인프라 — 힣이 직접 구축 중 (2026-05-27). work forge 가동 검증 통과 (v15.0.2). work 토큰은 ~/.env.local FORGE_WORK_* + pass api/forge/work/glg-bot 이중화. bin/forge는 아직 단일 host (FORGE_URL 만) — multi-host(--host work)는 다음 spike
 
 ## 다음 한 걸음 — 결정/대기 항목
 
@@ -78,8 +78,8 @@ forge-config/
 
 - ROADMAP.md (봇로그/issue와 중복되지 않을 때)
 - docs/ 분리 (AGENTS/README가 비대해질 때)
-- agent-config 표면 (CLI 최소 검증 후)
-- alskdjf 인프라 (oracle 운영 안정화 후)
+- agent skill farm 배포 (`./run.sh setup` — agent-config 담당자 결정. thin pointer 박혔으므로 진행 가능, 단 다중 호스트에 `~/repos/gh/forge-config` 클론 사전 확인 필요)
+- **bin/forge multi-host 지원** (`--host work` 또는 `FORGE_HOST=work`) — 두 인스턴스(oracle+work) 동시 운영. 환경 변수: `FORGE_URL/TOKEN/USER` (default) vs `FORGE_WORK_URL/TOKEN/USER`. work 토큰 이중화 완료(2026-05-27), CLI 진화는 사용 누적 후
 
 ## 영속 사실 — 이전 완료 / 대기
 
