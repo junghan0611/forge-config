@@ -94,6 +94,11 @@ bin/forge issue-create REPO "Title" "Body"
 bin/forge issue-create REPO "Title" "Body" --labels agent:ready
 bin/forge issue-create "Title" "Body"   # REPO 생략 시 default repo
 
+# multi-line BODY → --body-file PATH (또는 - 로 stdin)
+# inline BODY 인자에 \n 이 들어가면 positional 파서가 깨진다 → file/stdin 강제.
+bin/forge issue-create REPO "Title" --body-file /tmp/body.md
+cat body.md | bin/forge issue-create REPO "Title" --body-file -
+
 # 명시적 profile override
 bin/forge --forge work list-open glg-bot/<work-repo>
 FORGE_PROFILE=oracle bin/forge state glg-bot/sandbox#1

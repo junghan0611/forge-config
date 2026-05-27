@@ -17,6 +17,7 @@
 - ✅ `bin/forge` multi-profile (oracle + work) — `--forge` 플래그 / `FORGE_PROFILE` env / cwd 패턴 자동 결정. thinkpad 에서 양쪽 forge round-trip 검증 통과 (2026-05-27).
 - ✅ 머신 정체성 SSOT 분리 — `~/.current-forge-profile` 도입. hostname SSOT (`~/.current-device`) 와 forge profile 결정 SSOT 분리. 직접 접속 호스트 (oracle/work) 만 박고 클라이언트 머신 (thinkpad/laptop/nuc) 은 비워둠. `.env.local` 의 case 분기 입력 갱신, AGENTS.md / SKILL.md 예시 정합 (2026-05-27).
 - ✅ `issue-create` 동사 추가 — 5번째 동사. v1.5 박힘. sweeper 의 일차 입력 자리. atomic 라벨 옵션 (`--labels`), footer 자동 부착, default repo fallback. work forge 이슈 요청 응답 + oracle sandbox 5단계 round-trip 검증 통과. (2026-05-27)
+- ✅ `issue-create --body-file PATH` (또는 `-` = stdin) 추가 — v1.6. multi-line BODY 지원. inline BODY 인자에 `\n` 들어가면 positional 파서가 split 해 `pos_count > 3` guard 발동하던 v1.5 한계 해소. work host 의 운영 봇이 multi-line 이슈 생성 실패 → memory 파일 우회 기록만 남기는 자리로 신호 노출. TITLE 은 여전히 single-line. SKILL.md / AGENTS.md 짝으로 갱신. (2026-05-27)
 - 🔄 alskdjf 인프라 — 힣이 직접 구축 중 (2026-05-27). work forge 가동 검증 통과 (v15.0.2). 운영 양식: **mirror (M)** — 코드 SSOT 외부 GitHub, Forgejo 는 봇 운영면(이슈/라벨/PR 자동화). oracle 의 *짝(paired)* 패턴과 분기된 자리. work 토큰 이중화(pass + ~/.env.local prefix 변수). multi-host 처리는 `~/.env.local` host-scoped case + `~/.current-device` 로 해결 (아래 "미루어도 되는 것" 참조)
 
 ## 다음 한 걸음 — 결정/대기 항목

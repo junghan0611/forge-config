@@ -9,6 +9,8 @@ Usage:
   forge [--forge oracle|work] comment ISSUE BODY
   forge [--forge oracle|work] label-add ISSUE LABEL
   forge [--forge oracle|work] issue-create [REPO] TITLE BODY [--labels L1,L2,...]
+  forge [--forge oracle|work] issue-create [REPO] TITLE --body-file PATH [--labels ...]
+  forge [--forge oracle|work] issue-create [REPO] TITLE --body-file -    [--labels ...]   # stdin
 
 ISSUE forms:
   N                  → current profile's default repo (e.g. "1")
@@ -181,14 +183,19 @@ cmd_label_add() {
 
 cmd_issue_create() {
   # Forms:
-  #   issue-create REPO TITLE BODY [--labels L1,L2,...]
-  #   issue-create TITLE BODY      [--labels L1,L2,...]   (uses DEFAULT_REPO)
+  #   issue-create REPO TITLE BODY                 [--labels ...]
+  #   issue-create TITLE BODY                      [--labels ...]   (uses DEFAULT_REPO)
+  #   issue-create REPO TITLE --body-file PATH     [--labels ...]
+  #   issue-create TITLE --body-file PATH          [--labels ...]
+  # --body-file -  reads BODY from stdin.
   # First positional is REPO iff it contains '/'. Otherwise it's TITLE.
+  # NOTE: TITLE stays single-line. Multi-line content belongs in BODY via --body-file.
   labels_csv=""
+  body_file=""
   positional=""
   NL=$(printf '\nx'); NL="${NL%x}"  # POSIX-safe newline literal
 
-  # Strip --labels from args, keep rest positional in order.
+  # Strip flags from args; keep the rest positional in order.
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --labels)
@@ -196,35 +203,65 @@ cmd_issue_create() {
         labels_csv="$2"; shift 2 ;;
       --labels=*)
         labels_csv="${1#--labels=}"; shift ;;
+      --body-file)
+        [ "$#" -ge 2 ] || { echo "--body-file needs PATH (or '-' for stdin)" >&2; exit 2; }
+        body_file="$2"; shift 2 ;;
+      --body-file=*)
+        body_file="${1#--body-file=}"; shift ;;
       *)
-        # Build positional list, one arg per line. NOTE: this means individual args
-        # must not contain literal newlines themselves (would split into 2 positionals).
-        # Single-line title and single-line body cover v1 sweeper use-case.
+        # Build positional list, one arg per line. With --body-file the BODY positional
+        # is supplied out-of-band, so multi-line content no longer breaks this counter.
         positional="${positional}${1}${NL}"
         shift ;;
     esac
   done
 
-  # Parse positional. Use a temp file to handle multi-line title/body safely.
   pos_count=$(printf '%s' "$positional" | grep -c '^' || true)
-  if [ "$pos_count" -lt 2 ] || [ "$pos_count" -gt 3 ]; then
-    echo "ERROR: issue-create needs TITLE BODY (and optional REPO as first arg)" >&2
-    exit 2
-  fi
 
-  if [ "$pos_count" -eq 3 ]; then
-    repo_arg=$(printf '%s' "$positional" | sed -n '1p')
-    title=$(printf '%s' "$positional" | sed -n '2p')
-    body=$(printf '%s' "$positional" | sed -n '3p')
-    case "$repo_arg" in
-      */*) repo="$(repo_path "$repo_arg")" ;;
-      *)   echo "ERROR: REPO arg must look like 'owner/repo' (got '$repo_arg'). To use default repo, pass only TITLE BODY." >&2; exit 2 ;;
-    esac
+  if [ -n "$body_file" ]; then
+    # With --body-file the positional list is [REPO] TITLE (1 or 2 entries).
+    if [ "$pos_count" -lt 1 ] || [ "$pos_count" -gt 2 ]; then
+      echo "ERROR: issue-create --body-file needs TITLE (and optional REPO as first arg)" >&2
+      exit 2
+    fi
+    if [ "$pos_count" -eq 2 ]; then
+      repo_arg=$(printf '%s' "$positional" | sed -n '1p')
+      title=$(printf '%s' "$positional" | sed -n '2p')
+      case "$repo_arg" in
+        */*) repo="$(repo_path "$repo_arg")" ;;
+        *)   echo "ERROR: REPO arg must look like 'owner/repo' (got '$repo_arg'). To use default repo, pass only TITLE." >&2; exit 2 ;;
+      esac
+    else
+      title=$(printf '%s' "$positional" | sed -n '1p')
+      [ -n "$DEFAULT_REPO" ] || { echo "ERROR: no REPO arg and no default repo (profile=$FORGE_PROFILE has no FORGE_REPO). Pass owner/repo as first arg." >&2; exit 2; }
+      repo="$(repo_path "$DEFAULT_REPO")"
+    fi
+    if [ "$body_file" = "-" ]; then
+      body=$(cat)
+    else
+      [ -r "$body_file" ] || { echo "ERROR: --body-file not readable: $body_file" >&2; exit 2; }
+      body=$(cat -- "$body_file")
+    fi
   else
-    title=$(printf '%s' "$positional" | sed -n '1p')
-    body=$(printf '%s' "$positional" | sed -n '2p')
-    [ -n "$DEFAULT_REPO" ] || { echo "ERROR: no REPO arg and no default repo (profile=$FORGE_PROFILE has no FORGE_REPO). Pass owner/repo as first arg." >&2; exit 2; }
-    repo="$(repo_path "$DEFAULT_REPO")"
+    # Inline BODY form — must be single-line (newline-in-arg breaks the positional counter).
+    if [ "$pos_count" -lt 2 ] || [ "$pos_count" -gt 3 ]; then
+      echo "ERROR: issue-create needs TITLE BODY (and optional REPO as first arg). For multi-line BODY use --body-file PATH (or - for stdin)." >&2
+      exit 2
+    fi
+    if [ "$pos_count" -eq 3 ]; then
+      repo_arg=$(printf '%s' "$positional" | sed -n '1p')
+      title=$(printf '%s' "$positional" | sed -n '2p')
+      body=$(printf '%s' "$positional" | sed -n '3p')
+      case "$repo_arg" in
+        */*) repo="$(repo_path "$repo_arg")" ;;
+        *)   echo "ERROR: REPO arg must look like 'owner/repo' (got '$repo_arg'). To use default repo, pass only TITLE BODY." >&2; exit 2 ;;
+      esac
+    else
+      title=$(printf '%s' "$positional" | sed -n '1p')
+      body=$(printf '%s' "$positional" | sed -n '2p')
+      [ -n "$DEFAULT_REPO" ] || { echo "ERROR: no REPO arg and no default repo (profile=$FORGE_PROFILE has no FORGE_REPO). Pass owner/repo as first arg." >&2; exit 2; }
+      repo="$(repo_path "$DEFAULT_REPO")"
+    fi
   fi
 
   [ -n "$title" ] || { echo "ERROR: empty title" >&2; exit 2; }
