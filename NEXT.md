@@ -2,17 +2,19 @@
 
 > 끝나지 않은 일과 후속 검증 항목. 영속 baseline 은 [AGENTS.md](./AGENTS.md), 이 문서는 *지금 시점의 다음 한 걸음*.
 
-## 지금 상태 (2026-05-27 KST 10:40)
+## 지금 상태 (2026-05-27 KST 10:50)
 
 - ✅ Oracle 인프라 가동: `https://forge.junghanacs.com` (Forgejo 15.0.2)
 - ✅ admin user `junghanacs` 생성
 - ✅ Caddy 리버스 프록시 + Let's Encrypt
 - ✅ README / AGENTS / NEXT 초안 박힘
-- ✅ 검증용 sandbox: `glg-bot/sandbox#1` 라벨 5개 + 봇 footer 코멘트 검증 완료
+- ✅ 검증용 sandbox: `glg-bot/sandbox#1, #2` (state/list/comment + label-add round-trip 검증)
 - ✅ `bin/forge` minimal 4-command 박힘: `list-open`, `comment`, `label-add`, `state`
-- ✅ GitHub remote: `junghan0611/forge-config`
-- ❌ forge-config 자체 Forgejo repo/issue — 아직 없음. sandbox 다음 단계.
-- ❌ agent skill surface — 아직 없음. `bin/forge` 안정화 후 thin pointer.
+- ✅ GitHub remote: `junghan0611/forge-config` (공개면)
+- ✅ Forgejo repo: `glg-bot/forge-config` (운영면 — 라벨 5개 박힘). GitHub의 짝
+- ✅ AGENTS.md 운영 사실 영속화 (라벨/forge cmd/footer/secret)
+- 🔄 agent skill surface — forge-config 담당자 별도 세션 디자인 중
+- 🔄 alskdjf 인프라 — 힣이 직접 구축 중 (2026-05-27)
 
 ## 다음 한 걸음 — 결정/대기 항목
 
@@ -52,17 +54,19 @@ forge-config/
 - 결정: README/AGENTS만 있는 상태가 아니라, `bin/forge` 첫 round-trip까지 포함한 뒤 공개 이력으로 둔다.
 - 주의: 시크릿은 계속 `~/.env.local`/`pass`에만. 이 repo에는 변수명/절차만 둔다.
 
-### 5. 라벨 / 라벨 자동 생성 — 명시 bootstrap은 다음 spike로 대기
+### 5. 라벨 자동 bootstrap CLI — 다음 spike로 대기
 
-- 현재 sandbox에는 5개 라벨이 수동 검증 완료.
-- 결정: minimal 4-command에는 `bootstrap-labels`를 넣지 않음. 작동면이 늘어나면 책임 경계가 흐려짐.
-- → 힣 결정 대기: forge-config 자체 repo를 만들 때 `bootstrap-labels`를 CLI에 추가할지, 초기 세팅 문서로만 둘지.
+- 현재 sandbox + forge-config repo 둘 다 5개 라벨 박힘 (수동 curl로 5회 반복).
+- 결정: minimal 4-command에는 `bootstrap-labels` 넣지 않음 (책임 경계 흐려짐 회피).
+- 운영 누적이 늘어 매번 5개 박는 부담이 명백해지면 그때 CLI 추가. 지금은 절차 문서로 충분.
 
-### 6. 첫 issue / 첫 작업 — sandbox 완료, forge-config 자체 issue는 힣 결정 대기
+### 6. forge-config 자체 Forgejo repo — `glg-bot/forge-config` 로 결정 (2026-05-27)
 
-- 완료: `glg-bot/sandbox#1` — "Spike 0 — 봇멘트 fork → forge API endpoint swap".
-- 다음 후보: Forgejo 안에 `glg-bot/forge-config` 또는 `junghanacs/forge-config`를 만들고 동일 프로토콜로 dogfood.
-- → 힣 결정 대기 (근거: GitHub 공개 repo와 Forgejo 운영 repo의 ownership/user namespace는 사람 결정이 필요).
+- 결정: **`glg-bot/forge-config`** (Forgejo).
+- 의미: GitHub `junghan0611/forge-config`는 *공개면*(코드/문서), Forgejo `glg-bot/forge-config`는 *그 뒤의 힣 에이전트 공간*(이슈/라벨/봇 활동).
+- 봇멘트 패턴 그대로: 정원(공개 markdown) ↔ 댓글(remark42 인프라)와 동형. 짝이지만 독립 자리.
+- 박힌 자리: https://forge.junghanacs.com/glg-bot/forge-config (라벨 5개 완비, 이슈 0)
+- 다음: 첫 이슈는 담당자가 자기 작업을 dogfood로 박는 자리 (예: agent-config thin pointer 진행 추적)
 
 ## 미루지 말 것
 
@@ -77,13 +81,11 @@ forge-config/
 - agent-config 표면 (CLI 최소 검증 후)
 - alskdjf 인프라 (oracle 운영 안정화 후)
 
-## 영속 사실 (NEXT 에서 빠질 것)
+## 영속 사실 — 이전 완료 / 대기
 
-다음 사실들은 진척 시 NEXT 에서 빼고 AGENTS / README / docs 로 이전:
+다음 사실들의 영속 자리:
 
-- 라벨 5개 결정 → AGENTS.md 라벨 섹션
-- footer 서명 규약 → AGENTS.md footer 섹션
-- 호스트 역할 분리 (oracle vs alskdjf) → README.md 호스트 표
-- gotchas (INSTALL_LOCK env, inode caching) → docs/gotchas.md
-
-지금은 영속할 자리가 정해지지 않아 NEXT 에 같이 두지만, 진척 시 옮긴다.
+- ✅ 라벨 5개 정의 → AGENTS.md "라벨 protocol v1" 섹션 (Turn 2 영속화)
+- ✅ footer 서명 규약 → AGENTS.md "봇 footer 서명" 섹션 (Turn 2 영속화)
+- ✅ 호스트 역할 분리 (oracle vs alskdjf) → README.md 호스트 표 (초안에 이미 있음)
+- ⏳ gotchas (INSTALL_LOCK env, inode caching, write:user scope) → 봇로그 20260527T073823 LLMLOG 섹션에 박힘. 운영이 누적되면 `docs/gotchas.md`로 별도 분리 검토
