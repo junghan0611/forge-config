@@ -92,8 +92,12 @@ apply_profile() {
 
 # stderr observability for mutating commands — the operator should always see
 # which (profile, repo, url) a write is going against before it lands.
+# Caller passes the resolved target repo so this reflects the actual write
+# destination, not DEFAULT_REPO (which is empty for work profile, and only
+# accidentally correct for oracle when explicit repo args coincide with the
+# default).
 log_context() {
-  echo "[forge] profile=$FORGE_PROFILE repo=${DEFAULT_REPO:-<unset>} url=$FORGE_URL" >&2
+  echo "[forge] profile=$FORGE_PROFILE repo=$1 url=$FORGE_URL" >&2
 }
 
 build_default_footer() {
@@ -177,6 +181,7 @@ cmd_comment() {
   body="$*"
   repo="$(repo_path "$(issue_repo "$issue")")"
   num="$(issue_number "$issue")"
+  log_context "$repo"
   full_body=$(printf '%s\n\n%s' "$body" "$FORGE_BOT_FOOTER")
   payload=$(jq -n --arg body "$full_body" '{body:$body}')
   api POST "/repos/$repo/issues/$num/comments" "$payload" | jq -r '"comment #\(.id) by \(.user.login): \(.body | split("\n")[0])"'
@@ -187,6 +192,7 @@ cmd_label_add() {
   issue="$1"; label="$2"
   repo="$(repo_path "$(issue_repo "$issue")")"
   num="$(issue_number "$issue")"
+  log_context "$repo"
   label_id=$(api GET "/repos/$repo/labels" | jq -r --arg name "$label" '.[] | select(.name == $name) | .id' | head -n1)
   [ -n "$label_id" ] || { echo "label not found: $label" >&2; exit 1; }
   payload=$(jq -n --argjson id "$label_id" '{labels:[$id]}')
@@ -279,6 +285,8 @@ cmd_issue_create() {
   [ -n "$title" ] || { echo "ERROR: empty title" >&2; exit 2; }
   [ -n "$body" ] || { echo "ERROR: empty body" >&2; exit 2; }
 
+  log_context "$repo"
+
   # Resolve label names → ids (one API GET).
   label_ids_json="[]"
   if [ -n "$labels_csv" ]; then
@@ -337,8 +345,8 @@ case "$cmd" in
   repos)        require_env; shift; cmd_repos "$@" ;;
   list-open)    require_env; shift; cmd_list_open "$@" ;;
   state)        require_env; shift; cmd_state "$@" ;;
-  comment)      require_env; log_context; shift; cmd_comment "$@" ;;
-  label-add)    require_env; log_context; shift; cmd_label_add "$@" ;;
-  issue-create) require_env; log_context; shift; cmd_issue_create "$@" ;;
+  comment)      require_env; shift; cmd_comment "$@" ;;
+  label-add)    require_env; shift; cmd_label_add "$@" ;;
+  issue-create) require_env; shift; cmd_issue_create "$@" ;;
   *) echo "unknown command: $cmd" >&2; usage >&2; exit 2 ;;
 esac
