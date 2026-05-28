@@ -102,6 +102,12 @@ bin/forge issue-create "Title" "Body"   # REPO 생략 시 default repo
 bin/forge issue-create REPO "Title" --body-file /tmp/body.md
 cat body.md | bin/forge issue-create REPO "Title" --body-file -
 
+# Mattermost thread bridge metadata — channel/root 둘 다 박혀야. account default forgebot.
+# body 끝에 <!-- openclaw:mm {...} --> HTML comment 박힘 + 로컬 SSOT 저장
+# ~/.openclaw/state/forge-mm-links.sqlite (key=<profile>:<repo>#<num>)
+bin/forge issue-create REPO "Title" "Body" \
+  --mm-channel <channel_id> --mm-root-id <root_post_id> [--mm-account forgebot]
+
 # 명시적 profile override
 bin/forge --forge work list-open glg-bot/<work-repo>
 FORGE_PROFILE=oracle bin/forge state glg-bot/sandbox#1

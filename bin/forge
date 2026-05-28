@@ -9,9 +9,15 @@ Usage:
   forge [--forge oracle|work] state ISSUE
   forge [--forge oracle|work] comment ISSUE BODY
   forge [--forge oracle|work] label-add ISSUE LABEL
-  forge [--forge oracle|work] issue-create [REPO] TITLE BODY [--labels L1,L2,...]
-  forge [--forge oracle|work] issue-create [REPO] TITLE --body-file PATH [--labels ...]
-  forge [--forge oracle|work] issue-create [REPO] TITLE --body-file -    [--labels ...]   # stdin
+  forge [--forge oracle|work] issue-create [REPO] TITLE BODY               [OPTIONS]
+  forge [--forge oracle|work] issue-create [REPO] TITLE --body-file PATH   [OPTIONS]
+  forge [--forge oracle|work] issue-create [REPO] TITLE --body-file -      [OPTIONS]   # stdin
+
+OPTIONS (issue-create):
+  --labels L1,L2,...
+  --mm-channel CHID --mm-root-id RID [--mm-account ID]   # Mattermost thread bridge
+                                                         # both channel and root required when used
+                                                         # account defaults to "forgebot"
 
 ISSUE forms:
   N                  → current profile's default repo (e.g. "1")
@@ -201,15 +207,18 @@ cmd_label_add() {
 
 cmd_issue_create() {
   # Forms:
-  #   issue-create REPO TITLE BODY                 [--labels ...]
-  #   issue-create TITLE BODY                      [--labels ...]   (uses DEFAULT_REPO)
-  #   issue-create REPO TITLE --body-file PATH     [--labels ...]
-  #   issue-create TITLE --body-file PATH          [--labels ...]
+  #   issue-create REPO TITLE BODY                 [OPTIONS]
+  #   issue-create TITLE BODY                      [OPTIONS]   (uses DEFAULT_REPO)
+  #   issue-create REPO TITLE --body-file PATH     [OPTIONS]
+  #   issue-create TITLE --body-file PATH          [OPTIONS]
   # --body-file -  reads BODY from stdin.
   # First positional is REPO iff it contains '/'. Otherwise it's TITLE.
   # NOTE: TITLE stays single-line. Multi-line content belongs in BODY via --body-file.
   labels_csv=""
   body_file=""
+  mm_channel=""
+  mm_root_id=""
+  mm_account=""
   positional=""
   NL=$(printf '\nx'); NL="${NL%x}"  # POSIX-safe newline literal
 
@@ -226,6 +235,21 @@ cmd_issue_create() {
         body_file="$2"; shift 2 ;;
       --body-file=*)
         body_file="${1#--body-file=}"; shift ;;
+      --mm-channel)
+        [ "$#" -ge 2 ] || { echo "--mm-channel needs a value" >&2; exit 2; }
+        mm_channel="$2"; shift 2 ;;
+      --mm-channel=*)
+        mm_channel="${1#--mm-channel=}"; shift ;;
+      --mm-root-id)
+        [ "$#" -ge 2 ] || { echo "--mm-root-id needs a value" >&2; exit 2; }
+        mm_root_id="$2"; shift 2 ;;
+      --mm-root-id=*)
+        mm_root_id="${1#--mm-root-id=}"; shift ;;
+      --mm-account)
+        [ "$#" -ge 2 ] || { echo "--mm-account needs a value" >&2; exit 2; }
+        mm_account="$2"; shift 2 ;;
+      --mm-account=*)
+        mm_account="${1#--mm-account=}"; shift ;;
       *)
         # Build positional list, one arg per line. With --body-file the BODY positional
         # is supplied out-of-band, so multi-line content no longer breaks this counter.
@@ -233,6 +257,17 @@ cmd_issue_create() {
         shift ;;
     esac
   done
+
+  # Mattermost bridge — channel and root must come as a pair. Partial metadata
+  # would break thread bridge silently (forge agent reads root_id; missing
+  # channel would point to nowhere).
+  if [ -n "$mm_channel" ] || [ -n "$mm_root_id" ]; then
+    [ -n "$mm_channel" ] && [ -n "$mm_root_id" ] || {
+      echo "ERROR: --mm-channel and --mm-root-id must be provided together" >&2
+      exit 2
+    }
+    : "${mm_account:=forgebot}"
+  fi
 
   pos_count=$(printf '%s' "$positional" | grep -c '^' || true)
 
@@ -302,15 +337,80 @@ cmd_issue_create() {
     ')
   fi
 
-  # Body footer auto-append (same policy as `comment`).
-  full_body=$(printf '%s\n\n%s' "$body" "$FORGE_BOT_FOOTER")
+  # Body assembly order: body → (mm metadata, if any) → footer.
+  # - footer stays last (bot-identification, human-visible, consistent with `comment`)
+  # - mm metadata is an HTML comment (machine-readable, human-invisible in
+  #   rendered markdown) sitting between body and footer.
+  if [ -n "$mm_channel" ]; then
+    mm_json=$(jq -n -c \
+      --arg c "$mm_channel" \
+      --arg r "$mm_root_id" \
+      --arg a "$mm_account" \
+      '{channel_id:$c, root_id:$r, account:$a}')
+    mm_meta=$(printf '<!-- openclaw:mm %s -->' "$mm_json")
+    full_body=$(printf '%s\n\n%s\n\n%s' "$body" "$mm_meta" "$FORGE_BOT_FOOTER")
+  else
+    full_body=$(printf '%s\n\n%s' "$body" "$FORGE_BOT_FOOTER")
+  fi
+
   payload=$(jq -n \
     --arg t "$title" \
     --arg b "$full_body" \
     --argjson labels "$label_ids_json" \
     '{title:$t, body:$b, labels:$labels}')
 
-  api POST "/repos/$repo/issues" "$payload" | jq -r '"issue #\(.number) created at \(.html_url)\nlabels=[\([.labels[].name] | join(","))]"'
+  api_response=$(api POST "/repos/$repo/issues" "$payload")
+  issue_num=$(printf '%s' "$api_response" | jq -r '.number')
+
+  # Persist mm-link SSOT after issue is created (issue_num required for the key).
+  # Optional — sqlite3 missing → warn and continue. body metadata is the
+  # canonical surface; sqlite is a fast local lookup index.
+  if [ -n "$mm_channel" ] && [ -n "$issue_num" ] && [ "$issue_num" != "null" ]; then
+    mm_sqlite_save "$FORGE_PROFILE" "$repo" "$issue_num" "$mm_channel" "$mm_root_id" "$mm_account"
+  fi
+
+  printf '%s\n' "$api_response" | jq -r '"issue #\(.number) created at \(.html_url)\nlabels=[\([.labels[].name] | join(","))]"'
+}
+
+# Persist Mattermost thread bridge metadata to local SQLite SSOT.
+# Schema: forge_mm_links(key TEXT PK, channel_id, root_id, account_id, created_at)
+# key format: "<profile>:<owner/repo>#<issue_num>"  (e.g. "work:glg-bot/voscli#3")
+# Idempotent via INSERT OR REPLACE — re-running issue-create against the same
+# issue (rare, but possible during recovery) updates the row in place.
+mm_sqlite_save() {
+  _profile="$1"; _repo="$2"; _num="$3"
+  _channel="$4"; _root="$5"; _account="$6"
+
+  command -v sqlite3 >/dev/null 2>&1 || {
+    echo "[forge] WARN: sqlite3 not installed, mm-link SSOT skipped (body metadata is canonical)" >&2
+    return 0
+  }
+
+  _db_dir="$HOME/.openclaw/state"
+  _db="$_db_dir/forge-mm-links.sqlite"
+  mkdir -p "$_db_dir"
+
+  _now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  _key="${_profile}:${_repo}#${_num}"
+
+  # Single-quote escape — Mattermost IDs are alphanumeric in practice, but
+  # treat all six values as untrusted at the SQL boundary.
+  esc() { printf '%s' "$1" | sed "s/'/''/g"; }
+  _k=$(esc "$_key"); _c=$(esc "$_channel"); _r=$(esc "$_root")
+  _a=$(esc "$_account"); _t=$(esc "$_now")
+
+  sqlite3 "$_db" <<SQL
+CREATE TABLE IF NOT EXISTS forge_mm_links (
+  key TEXT PRIMARY KEY,
+  channel_id TEXT NOT NULL,
+  root_id TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+INSERT OR REPLACE INTO forge_mm_links VALUES ('$_k','$_c','$_r','$_a','$_t');
+SQL
+
+  echo "[forge] mm-link saved: $_key → $_db" >&2
 }
 
 cmd_state() {
