@@ -40,7 +40,7 @@ Forgejo 인스턴스 위에 얹힌 운영 layer — 인프라가 아니라 **정
    - FORGE_URL / FORGE_TOKEN / FORGE_USER 박혀있는지 검증
    - curl -sH "Authorization: token $FORGE_TOKEN" "$FORGE_URL/api/v1/user" | jq .login  # glg-bot 확인
 
-3. 작업면 점검 — 아래 `bin/forge — minimal 4-command` 참고
+3. 작업면 점검 — 아래 `bin/forge — minimal 6-command` 참고
    - bin/forge list-open
    - bin/forge state <issue>
    - 우선순위: ci:failed > agent:ready > human:needs-review (정보용)
@@ -72,11 +72,14 @@ Forgejo 인스턴스 위에 얹힌 운영 layer — 인프라가 아니라 **정
 | `human:needs-review` | `#5319e7` | 사람 판단 필요 |
 | `ci:failed` | `#d73a4a` | CI 깨짐 |
 
-## bin/forge — minimal 5-command (multi-profile)
+## bin/forge — minimal 6-command (multi-profile)
 
 위치: `~/repos/gh/forge-config/bin/forge`. **profile 시스템**으로 oracle/work 두 인스턴스를 한 손에서 운영한다.
 
 ```bash
+# 현 profile 의 봇 namespace 아래 실재 repo 목록 (discovery primitive)
+bin/forge repos [OWNER]
+
 # 열린 이슈 목록. REPO 생략 시 현 profile 의 default repo
 bin/forge list-open [REPO]
 

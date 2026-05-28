@@ -4,6 +4,7 @@ set -eu
 usage() {
   cat <<'EOF'
 Usage:
+  forge [--forge oracle|work] repos [OWNER]
   forge [--forge oracle|work] list-open [REPO]
   forge [--forge oracle|work] state ISSUE
   forge [--forge oracle|work] comment ISSUE BODY
@@ -19,6 +20,9 @@ REPO forms (for list-open / issue-create):
   owner/repo         → explicit
   repo               → "<FORGE_USER>/repo"
   (omitted)          → default repo per profile
+OWNER form (for repos):
+  (omitted)          → "<FORGE_USER>" (current profile's bot user, usually "glg-bot")
+  username           → explicit (e.g. "glg-bot")
 
 Profile selection (priority):
   1. --forge <profile> flag
@@ -156,6 +160,14 @@ cmd_list_open() {
   api GET "/repos/$repo/issues?state=open" | jq -r '
     if length == 0 then "(no open issues)"
     else .[] | "#\(.number) [\(.state)] \(.title) labels=[\([.labels[].name] | join(","))] comments=\(.comments)"
+    end'
+}
+
+cmd_repos() {
+  owner="${1:-$FORGE_USER}"
+  api GET "/users/$owner/repos?limit=50" | jq -r '
+    if length == 0 then "(no repos under " + "'"$owner"'" + ")"
+    else sort_by(.full_name) | .[] | "\(.full_name) (\(.open_issues_count) open) — \(.description // "")"
     end'
 }
 
@@ -322,6 +334,7 @@ done
 cmd="${1-}"
 case "$cmd" in
   -h|--help|help|"") usage ;;
+  repos)        require_env; shift; cmd_repos "$@" ;;
   list-open)    require_env; shift; cmd_list_open "$@" ;;
   state)        require_env; shift; cmd_state "$@" ;;
   comment)      require_env; log_context; shift; cmd_comment "$@" ;;

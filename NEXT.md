@@ -31,6 +31,7 @@ Forgejo issue/label/comment 이벤트
 
 Phase 0/1/2 끝났으니 이쪽에서 다듬는 자리. 운영 한 사이클 굴려 자취 본 뒤 결정.
 
+- **OpenClaw `agents.list[].env` 5.22 미지원 확정** (2026-05-28, openclaw 담당자 검토) — `AgentEntrySchema` `.strict()` 박혀있어 정의 안 된 키 거부. agent process 환경변수 자리 없음 (`params` 는 model params 자리, env 아님). 따라서 봇별 forge profile 주입은 **D1 정공법** (workspace 정체성 문서 한 줄) 이 영구 fallback. **5.26 신설 여부** 는 NEXT 0-upgrade 시점에 확인 자리 — 신설 시 voc/main/forge 셋 다 D1→D2 마이그레이션 가능 (`agents.list[voc].env: {FORGE_PROFILE: "work", WORK_FORGE_REPO: "glg-bot/voscli"}` 형태). 그 위에 자연 박힘.
 - **`FORGE_MODEL` env 자리 — 단일 정체성 정공법 함정** (2026-05-27 발견, 운영 안정화 후 결정) — `~/.openclaw/.env` 에 `FORGE_MODEL=gpt-5.4` 박힘. OpenClaw gateway global env 라 *모든 agent process* (main/voc/forge) 가 같은 값 상속. bin/forge 는 호출자가 누구인지 신경 안 씀 (L97/L112). 영향:
 
   | agent | 실제 model | 박힐 footer | 정합 |
@@ -69,7 +70,7 @@ Phase 0/1/2 끝났으니 이쪽에서 다듬는 자리. 운영 한 사이클 굴
 | **B. label-remove / label-set 동사 (v2)** | 30분~1시간 | 미관 자리 | 운영 누적 후 라벨 누적 (`ready,running,done`) 이 신호 노이즈로 발현될 때. 미리 박지 말 것 |
 | **C. workspace-forge/ 5파일 정체성 미세 어긋남** (아래 튜닝 후속 #2) | 15분 | 낮음 | 운영 한 사이클 라이브 자취 본 뒤 |
 | **D. FORGE_MODEL agent-specific env 정공법** (아래 튜닝 후속 #1) | 30분 | 잠재 위험 | main 봇이 어쩌다 forge skill 부르는 자리 발견되면 즉시 |
-| **E. forge repo 발견성 — `glg-bot/forge-config#1`** | 30분~1시간 | 신뢰 자리 | vocbot 이 도구·스킬 다 줬는데도 forge repo path 못 찾고 GitHub-style `teamgoqual/*` 로 빙빙 돔 (2026-05-27 19:42 KST). 후보 A/B/C/D 비교 후 결정 |
+| ~~**E. forge repo 발견성 — `glg-bot/forge-config#1`**~~ | ✅ 해결 (2026-05-28) | — | `bin/forge repos` 동사 + SKILL.md "발견성" 단락 박힘. D1 (workspace 정체성 한 줄) 은 openclaw 담당자 자리. 라이브 검증은 vocbot 다음 turn |
 
 추천 순서: **A 먼저 (운영 실 가치) → E 는 신뢰 자취 회복 자리 (운영 봇이 봇멘트면처럼 발화하려면 발견성 보장 필수) → C/D 는 라이브 자취 본 뒤**. A 진입 전 sandbox 한 사이클 자취 확인 자리.
 
@@ -118,6 +119,7 @@ Phase 0/1/2 끝났으니 이쪽에서 다듬는 자리. 운영 한 사이클 굴
 - ✅ 머신 정체성 SSOT 분리 — `~/.current-forge-profile` 도입. hostname SSOT (`~/.current-device`) 와 forge profile 결정 SSOT 분리. 직접 접속 호스트 (oracle/work) 만 박고 클라이언트 머신 (thinkpad/laptop/nuc) 은 비워둠. `.env.local` 의 case 분기 입력 갱신, AGENTS.md / SKILL.md 예시 정합 (2026-05-27).
 - ✅ `issue-create` 동사 추가 — 5번째 동사. v1.5 박힘. sweeper 의 일차 입력 자리. atomic 라벨 옵션 (`--labels`), footer 자동 부착, default repo fallback. work forge 이슈 요청 응답 + oracle sandbox 5단계 round-trip 검증 통과. (2026-05-27)
 - ✅ `issue-create --body-file PATH` (또는 `-` = stdin) 추가 — v1.6. multi-line BODY 지원. inline BODY 인자에 `\n` 들어가면 positional 파서가 split 해 `pos_count > 3` guard 발동하던 v1.5 한계 해소. work host 의 운영 봇이 multi-line 이슈 생성 실패 → memory 파일 우회 기록만 남기는 자리로 신호 노출. TITLE 은 여전히 single-line. SKILL.md / AGENTS.md 짝으로 갱신. (2026-05-27)
+- ✅ `repos [OWNER]` 동사 추가 — 6번째 동사. discovery primitive. `GET /api/v1/users/{owner}/repos?limit=50` 회수, sort + open_issues_count + description 표시. OWNER 생략 시 `$FORGE_USER` (= `glg-bot`). vocbot `glg-bot/forge-config#1` 자취 (`teamgoqual/hej-nixos-cluster` 추측 → 404 → admin escalation) 의 namespace 막힘 자리 닫음. oracle/work 양쪽 round-trip 통과 — work forge 가 정확히 3개 (`incidentcli`/`sandbox`/`voscli`) 회수 확인. SKILL.md "발견성" 단락 + 사용법 예제 짝으로 갱신. (2026-05-28)
 - 🔄 alskdjf 인프라 — 힣이 직접 구축 중 (2026-05-27). work forge 가동 검증 통과 (v15.0.2). 운영 양식: **mirror (M)** — 코드 SSOT 외부 GitHub, Forgejo 는 봇 운영면(이슈/라벨/PR 자동화). oracle 의 *짝(paired)* 패턴과 분기된 자리. work 토큰 이중화(pass + ~/.env.local prefix 변수). multi-host 처리는 `~/.env.local` host-scoped case + `~/.current-device` 로 해결 (아래 "미루어도 되는 것" 참조)
 
 ## 다음 한 걸음 — 결정/대기 항목
