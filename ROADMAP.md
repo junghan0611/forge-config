@@ -68,6 +68,32 @@ This phase is about making the triage loop reliable before automating
 implementation. In this phase, `agent:done` means **first-review triage
 completed**, not **implementation completed**.
 
+## Completed Milestones
+
+### 0.1.0 — Forge connector baseline (2026-05-27/28)
+
+- Self-hosted Forgejo profiles are operational (`oracle`, `work`).
+- `bin/forge` provides the agent-facing issue/comment/label surface.
+- Multi-profile routing, mutating-command observability, and footer identity are in place.
+- Mattermost thread bridge metadata can be written on issue creation via `--mm-channel` / `--mm-root-id`.
+- `repos [OWNER]` exists as the discovery primitive so agents do not guess Forgejo namespaces.
+
+### 0.2.0 — forgebot triage loop v2 (2026-05-29)
+
+- The live OpenClaw hook prompt now follows:
+  `state` → `label-set agent:running` → scenario decision → `comment --body-file` → final `label-set`.
+- Long Forgejo comments are written through files; no long inline shell strings.
+- Status labels are kept singleton with `label-set`.
+- `agent:done` in the forgebot loop means **first-review triage completed**, not implementation completed.
+- forgebot is documented as dispatcher / recorder, not implementer.
+- Owner-agent calls are read-only first review by default.
+- Owner-agent review returns: reality check, owner repo/domain, risk, scope, implementation-needed?, priority, and Forgejo comment summary.
+- Live checks passed:
+  - `glg-bot/sandbox#11`: classification-only path → `human:needs-review`, GREEN.
+  - `glg-bot/voscli#10`: owner-agent read-only review → `agent:done`, GREEN.
+- Both checks kept exactly one lifecycle status label; no status-label accumulation.
+- Work Forge `glg-bot/{sandbox,voscli,incidentcli}` now has the `agent:blocked` label prepared.
+
 ## Near-Term Roadmap
 
 ### 1. Issue Capture
