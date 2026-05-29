@@ -1,5 +1,25 @@
 # forge-config AGENTS.md
 
+> If you are reading this, you are the **forge-config owner agent**.
+> Your job is to maintain the connector layer that turns human-agent conversations into durable Forgejo issues, first-review traces, and sorted implementation backlogs.
+
+## Wake-up Brief — Current Purpose
+
+forge-config is **not** a dashboard product and **not** an automatic coding factory.
+GLG gives domain owners agents to talk to. Those conversations are recorded as JSONL on the server. When a request, bug, missing feature, or repeated pain point appears, it should become a Forgejo issue.
+
+The intended loop:
+
+1. A domain bot (for example `vocbot`) talks with a human/domain owner.
+2. The request is captured as a Forgejo issue with labels and source context.
+3. Labels/webhooks wake **forgebot**.
+4. forgebot does **first-review coordination**, not implementation by default.
+5. forgebot asks the relevant repo/domain owner agent to classify scope, risk, priority, and whether implementation is needed.
+6. forgebot writes that review back to Forgejo.
+7. Later, GLG reviews the sorted backlog and directly calls owner agents for focused implementation/testing batches.
+
+Your responsibility is the connector: `bin/forge`, label protocol, footer convention, public docs, and the agent skill surface. Keep OpenClaw focused on transport/runtime wiring; keep this repo focused on the public operating model.
+
 > 이 문서를 읽고 있다면 당신은 **forge-config 담당자**입니다.
 > 깨어났을 때 할 일과 책임 경계를 여기서 잡습니다.
 
@@ -59,7 +79,7 @@ Forgejo 인스턴스 위에 얹힌 운영 layer — 인프라가 아니라 **정
    - 처리한 이슈 / 호출한 sibling / 남은 작업을 GLG 에게 보고
 ```
 
-## 라벨 protocol v1
+## 라벨 protocol v2
 
 5개 라벨로 시작한다. 부족해지면 운영 기록을 보고 RFC 후 추가한다.
 `bin/forge label-add`는 라벨 이름으로 동적 ID 조회 후 부착하므로 Forgejo 내부 label id를 문서에 고정하지 않는다.
@@ -69,10 +89,11 @@ Forgejo 인스턴스 위에 얹힌 운영 layer — 인프라가 아니라 **정
 | `agent:ready` | `#0e8a16` | 에이전트가 잡아도 됨 |
 | `agent:running` | `#fbca04` | 잡힘 — 작업 중 |
 | `agent:done` | `#0366d6` | 완료 |
+| `agent:blocked` | TBD | 막힘 — v2 상태 전이에 필요. repo에 없으면 `label-set ... agent:blocked`는 명확히 실패 |
 | `human:needs-review` | `#5319e7` | 사람 판단 필요 |
 | `ci:failed` | `#d73a4a` | CI 깨짐 |
 
-## bin/forge — minimal 6-command (multi-profile)
+## bin/forge — minimal 9-command (multi-profile)
 
 위치: `~/repos/gh/forge-config/bin/forge`. **profile 시스템**으로 oracle/work 두 인스턴스를 한 손에서 운영한다.
 
@@ -88,9 +109,17 @@ bin/forge state ISSUE
 
 # 봇 footer를 자동으로 붙여 코멘트
 bin/forge comment ISSUE "본문"
+bin/forge comment ISSUE --body-file /tmp/comment.md
+cat /tmp/comment.md | bin/forge comment ISSUE --body-file -
 
-# 라벨 이름으로 ID를 조회해 부착
+# 라벨 이름으로 ID를 조회해 부착/제거
 bin/forge label-add ISSUE "agent:running"
+bin/forge label-remove ISSUE "agent:ready"
+
+# 상태 라벨군을 단일 상태로 교체
+# 상태군: agent:ready, agent:running, agent:done, agent:blocked, human:needs-review
+# 지정 라벨이 repo에 없으면 실패한다. agent:blocked는 v2 상태를 쓰기 전 repo 라벨 생성 필요.
+bin/forge label-set ISSUE "agent:running"
 
 # 이슈 생성 (sweeper 의 일차 입력 자리)
 bin/forge issue-create REPO "Title" "Body"
@@ -134,7 +163,7 @@ thinkpad 로 모으고 forge 인스턴스는 컨텍스트로 결정한다.
 
 ### Mutating 명령 stderr observability
 
-`comment` / `label-add` 호출 시 stderr 에 한 줄:
+`comment` / `label-add` / `label-remove` / `label-set` 호출 시 stderr 에 한 줄:
 
 ```
 [forge] profile=oracle repo=glg-bot/sandbox url=https://forge.junghanacs.com

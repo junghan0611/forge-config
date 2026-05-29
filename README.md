@@ -1,93 +1,156 @@
 # forge-config
 
-Shared **code workspace** for GLG agents — an operational ownership layer on top of a self-hosted Forgejo instance.
+Shared Forgejo connector for GLG agents.
 
-> If **botment** (remark42) is the system where GLG's agents leave comments on garden pages,
-> **forge-config is the same thing on the code surface**.
-> Issues / PRs / labels / CI / review comments become the shared workspace,
-> and agents recover context, pick up work, and leave traces here.
+forge-config is the public operational policy and CLI layer that lets GLG agents
+turn conversations into durable, reviewable Forgejo issues. It is the code-surface
+sibling of **botment**: botment lets agents leave traces on garden comments;
+forge-config lets agents leave traces on code work items.
+
+## Why Forge Exists
+
+GLG is now giving agents to domain owners.
+
+A domain owner should not need a dashboard just to ask for help. Operational
+teams, support teams, and internal users can talk to the responsible bot directly
+(for example `vocbot`). Those conversations are recorded on the server as JSONL.
+When a requirement, bug, missing feature, or repeated pain point appears, it
+should be captured as a Forgejo issue.
+
+Forgejo becomes the shared work ledger:
+
+- requests are captured from human-agent conversations;
+- issues preserve enough context for review;
+- labels wake the coordination bot;
+- owner agents classify and review the work;
+- GLG later sorts the backlog and runs focused implementation batches.
+
+This is why GitHub Copilot or generic hosted coding agents are not the target.
+The point is not “AI writes code somewhere.” The point is a GLG-owned agent
+network with durable context, explicit ownership, and reviewable traces.
 
 ## What this is NOT
 
-- ❌ **Factory-style parallel coding** — not the model of spawning 30 agents per repo and splitting via worktrees
-- ❌ **An infrastructure repo** — Docker compose / Caddy / host configuration live in [`nixos-config/docker/forge/`](https://github.com/junghan0611/nixos-config/tree/main/docker/forge)
-- ❌ **Just a CLI binary** — `bin/forge` (a curl wrapper) is a *means*, not the identity
+- ❌ A dashboard product for operational teams
+- ❌ A factory-style automatic coding system
+- ❌ A replacement for GLG deciding what to implement
+- ❌ An infrastructure repo — Docker/Caddy/host config lives elsewhere
+- ❌ Just a CLI binary — `bin/forge` is the hand, not the whole body
 
 ## What this IS
 
-- ✅ **Persistence of shared context** — a repo is an entry point for work, not a context boundary
-- ✅ **Agent ownership seat** — the forge-config owner wakes up, scans issues, calls other owners, monitors CI/CD
-- ✅ **Contact-surface definition for the forge harness** — label protocol, footer signature, webhook conventions
-- ✅ **SSOT for multi-host operational policy** — oracle (live), alskdjf (planned)
+- ✅ A connector between conversations, Forgejo issues, and owner agents
+- ✅ The SSOT for label policy, footer identity, and bot behavior on Forgejo
+- ✅ The CLI surface used by agents to read/write the shared issue ledger
+- ✅ A public record of the evolving operating model for GLG agent ownership
 
-## Host status
+## Operating Loop
 
-| Host | Domain | Status | Role |
-|---|---|---|---|
-| Oracle | `forge.junghanacs.com` | ✅ live (2026-05-27) | Family / public-garden paired repos |
-| alskdjf | TBD | 📋 planned | Personal dev experiments, heavy CI |
+```text
+Human / domain owner talks to a domain bot
+  → conversation is recorded as JSONL
+  → request / bug / improvement is detected
+  → Forgejo issue is created with labels and source context
+  → forgebot wakes up
+  → forgebot asks the relevant owner agent for first review
+  → owner agent classifies scope, risk, priority, and implementation need
+  → forgebot writes the review back to Forgejo
+  → GLG later reviews the sorted backlog
+  → GLG calls owner agents for focused implementation and tests
+  → completion is recorded back on the issue
+```
 
-Infrastructure reproduction lives in `nixos-config/docker/forge/SETUP.org` (SSOT).
-Operational policy (labels / footer / bot behavior) lives in this repo (SSOT).
+The early automation target is **capture + first review + sorting**, not automatic
+implementation. Implementation happens later in focused batches so quality stays
+high.
 
-## Label protocol v1 — start with 5
+## `bin/forge`
+
+`bin/forge` is a small POSIX shell + curl + jq CLI used by agents.
+It supports two profiles today: `oracle` and `work`.
+
+Core operations:
+
+```bash
+bin/forge repos [OWNER]
+bin/forge list-open [REPO]
+bin/forge state ISSUE
+bin/forge comment ISSUE "short body"
+bin/forge comment ISSUE --body-file /tmp/review.md
+bin/forge label-add ISSUE LABEL
+bin/forge label-remove ISSUE LABEL
+bin/forge label-set ISSUE STATUS_LABEL
+bin/forge issue-create [REPO] TITLE BODY [OPTIONS]
+bin/forge issue-create [REPO] TITLE --body-file PATH [OPTIONS]
+```
+
+Use `comment --body-file` for long reviews, test output, or handoff notes.
+Use `label-set` for lifecycle status so status labels do not accumulate.
+
+## Label Protocol v2
+
+Status labels are mutually exclusive and should be changed with `label-set`:
 
 | Label | Meaning |
 |---|---|
-| `agent:ready` | Agents may pick this up |
-| `agent:running` | Picked up — work in progress |
-| `agent:done` | Finished |
-| `human:needs-review` | Human judgment required |
-| `ci:failed` | CI broken |
+| `agent:ready` | Ready for agent review |
+| `agent:running` | Picked up / under review |
+| `agent:done` | Review or work completed |
+| `agent:blocked` | Blocked — create this label in each repo before using it |
+| `human:needs-review` | GLG / human decision required |
 
-Add more as operation accrues. botment also started with just two actions: read / reply.
+Signal labels can coexist with one status label:
 
-## Agent identity — single `glg-bot` + footer signature
+| Label | Meaning |
+|---|---|
+| `ci:failed` | CI is broken |
 
-When many agents comment on forge, giving each its own user explodes token/permission management.
+More domain/priority labels should be added only after operational need is clear.
 
-- **One `glg-bot` Forgejo user**
-- Footer at the tail of every comment body:
-  - `— glg-bot [claude-opus-4-7 / oracle]`
-  - `— glg-bot [pi-codex / nuc]`
-  - `— glg-bot [claude-code / laptop]`
+## Agent Identity
 
-Consistent with botment's single `힣봇` identity. If splitting ever becomes necessary, promote footer → user.
+Forgejo uses one bot user, `glg-bot`. Each comment ends with a footer:
 
-## Related notes
+```text
+— glg-bot [<model> / <host>]
+```
+
+Examples:
+
+- `— glg-bot [gpt-5.4 / work-host]`
+- `— glg-bot [claude-opus-4-7 / thinkpad]`
+- `— glg-bot [pi-codex / nuc]`
+
+This keeps token and permission management small while preserving which agent and
+machine left the trace.
+
+## Boundary of Responsibility
+
+| Layer | Location | Responsibility |
+|---|---|---|
+| Infrastructure | `nixos-config/docker/forge/` | Forgejo, Caddy, host deployment |
+| Connector / policy | this repo | CLI, label protocol, footer convention, bot behavior |
+| Agent skill surface | `agent-config/skills/forge/` | Thin pointer consumed by agent harnesses |
+| OpenClaw | `openclaw` | Chat/session/webhook transport and forgebot runtime wiring |
+| Owner repos | `voscli`, `nixos-config`, `openclaw`, ... | Domain-specific review and implementation |
+
+OpenClaw does not need to remember the entire philosophy. It should provide the
+transport and runtime connection. forge-config records the public operating model.
+
+## Roadmap
+
+See [ROADMAP.md](./ROADMAP.md).
+
+## Related Notes
 
 - Design: [Forge layer — shared code workspace for GLG agents](https://notes.junghanacs.com/botlog/20260527T073823)
 - Parent pattern: [botment — talk to GLG's agents through comments](https://notes.junghanacs.com/botlog/20260328T112722)
 - Series root: [Harness engineering: from stone axe to artificial intelligence](https://notes.junghanacs.com/botlog/20260319T152938)
-- 7-spike roadmap: [agent-config issue #13](https://github.com/junghan0611/agent-config/issues/13)
-
-## Boundary of responsibility
-
-| Layer | Location | Responsibility |
-|---|---|---|
-| **Infrastructure** | [`nixos-config/docker/forge/`](https://github.com/junghan0611/nixos-config/tree/main/docker/forge) | Docker compose, Caddy, per-host configuration |
-| **Operational ownership** | this repo | Label policy, footer convention, bot behavior, agent skill SSOT |
-| **Agent surface** | `agent-config/skills/forge/` | Thin pointer — this repo is the SSOT |
-| **Per-task repos** | nixos-config / openclaw / pi-shell-acp / ... | Each holds its own AGENTS.md owner seat |
-
-## Fork-friendly — adapt to your own operation
-
-This repo is wired against **GLG's operational convention** (the `oracle` + `work` two-profile setup). To fork it for your own forge operation, only the spots below need to match your environment.
-
-| Spot | Content | How to adapt |
-|---|---|---|
-| **Profile names** | `oracle` / `work` hardcoded in `bin/forge` | Edit the `apply_profile()` case branches to your operation names (e.g. `personal` / `vps`) |
-| **CWD anchors** | `*/repos/work/*` → work, `*/repos/gh/*` → oracle in `bin/forge` | Edit `resolve_profile()` case branches to match your directory convention |
-| **Env var prefixes** | `WORK_FORGE_*` / `ORACLE_FORGE_*` | Same — match the profile names |
-| **Machine identity SSOT** | `~/.current-forge-profile` holds the profile name (only on direct-access hosts; leave blank on clients) | Use as is |
-| **5 labels** | `agent:ready/running/done`, etc. | botment pattern — recommended as is |
-| **Footer format** | `— glg-bot [model / host]` | Substitute your bot name (`bin/forge` `build_default_footer`) |
-
-Once operation accrues to the point of adding a 3rd profile, v2 (externalize the registry) becomes the real moment. Until then, v1's hardcode is an honest tradeoff.
 
 ## Status
 
-✅ **v1 landed (2026-05-27)** — `bin/forge` minimal command set + multi-profile (oracle + work) + automatic footer assembly + mutating observability. Round-trip verified on both forges.
+✅ Connector v2 is active: multi-profile Forgejo CLI, mutating-command
+observability, `comment --body-file`, `label-remove`, and status-safe `label-set`.
 
-Next steps live in [NEXT.md](./NEXT.md).
-Owner instructions live in [AGENTS.md](./AGENTS.md).
+Next steps live in [NEXT.md](./NEXT.md). Owner instructions live in
+[AGENTS.md](./AGENTS.md).

@@ -8,10 +8,16 @@ Usage:
   forge [--forge oracle|work] list-open [REPO]
   forge [--forge oracle|work] state ISSUE
   forge [--forge oracle|work] comment ISSUE BODY
+  forge [--forge oracle|work] comment ISSUE --body-file PATH|-
   forge [--forge oracle|work] label-add ISSUE LABEL
+  forge [--forge oracle|work] label-remove ISSUE LABEL
+  forge [--forge oracle|work] label-set ISSUE LABEL
   forge [--forge oracle|work] issue-create [REPO] TITLE BODY               [OPTIONS]
   forge [--forge oracle|work] issue-create [REPO] TITLE --body-file PATH   [OPTIONS]
   forge [--forge oracle|work] issue-create [REPO] TITLE --body-file -      [OPTIONS]   # stdin
+
+OPTIONS (comment):
+  --body-file PATH|-                                      # multi-line body from file/stdin
 
 OPTIONS (issue-create):
   --labels L1,L2,...
@@ -184,7 +190,35 @@ cmd_repos() {
 cmd_comment() {
   [ "$#" -ge 2 ] || { usage >&2; exit 2; }
   issue="$1"; shift
-  body="$*"
+
+  case "${1:-}" in
+    --body-file)
+      [ "$#" -eq 2 ] || { echo "comment --body-file needs exactly PATH (or '-')" >&2; exit 2; }
+      body_file="$2"
+      if [ "$body_file" = "-" ]; then
+        body=$(cat)
+      else
+        [ -r "$body_file" ] || { echo "ERROR: --body-file not readable: $body_file" >&2; exit 2; }
+        body=$(cat -- "$body_file")
+      fi
+      ;;
+    --body-file=*)
+      [ "$#" -eq 1 ] || { echo "comment --body-file=PATH cannot be combined with inline BODY args" >&2; exit 2; }
+      body_file="${1#--body-file=}"
+      if [ "$body_file" = "-" ]; then
+        body=$(cat)
+      else
+        [ -r "$body_file" ] || { echo "ERROR: --body-file not readable: $body_file" >&2; exit 2; }
+        body=$(cat -- "$body_file")
+      fi
+      ;;
+    --*)
+      echo "unknown comment option: $1" >&2; usage >&2; exit 2 ;;
+    *)
+      body="$*" ;;
+  esac
+
+  [ -n "$body" ] || { echo "ERROR: empty comment body" >&2; exit 2; }
   repo="$(repo_path "$(issue_repo "$issue")")"
   num="$(issue_number "$issue")"
   log_context "$repo"
@@ -193,16 +227,65 @@ cmd_comment() {
   api POST "/repos/$repo/issues/$num/comments" "$payload" | jq -r '"comment #\(.id) by \(.user.login): \(.body | split("\n")[0])"'
 }
 
+label_id_by_name() {
+  _repo="$1"; _label="$2"
+  api GET "/repos/$_repo/labels" | jq -r --arg name "$_label" '.[] | select(.name == $name) | .id' | head -n1
+}
+
 cmd_label_add() {
   [ "$#" -eq 2 ] || { usage >&2; exit 2; }
   issue="$1"; label="$2"
   repo="$(repo_path "$(issue_repo "$issue")")"
   num="$(issue_number "$issue")"
   log_context "$repo"
-  label_id=$(api GET "/repos/$repo/labels" | jq -r --arg name "$label" '.[] | select(.name == $name) | .id' | head -n1)
+  label_id=$(label_id_by_name "$repo" "$label")
   [ -n "$label_id" ] || { echo "label not found: $label" >&2; exit 1; }
   payload=$(jq -n --argjson id "$label_id" '{labels:[$id]}')
   api POST "/repos/$repo/issues/$num/labels" "$payload" | jq -r '"labels=[\([.[].name] | join(","))]"'
+}
+
+cmd_label_remove() {
+  [ "$#" -eq 2 ] || { usage >&2; exit 2; }
+  issue="$1"; label="$2"
+  repo="$(repo_path "$(issue_repo "$issue")")"
+  num="$(issue_number "$issue")"
+  log_context "$repo"
+  label_id=$(label_id_by_name "$repo" "$label")
+  [ -n "$label_id" ] || { echo "label not found: $label" >&2; exit 1; }
+  api DELETE "/repos/$repo/issues/$num/labels/$label_id" >/dev/null
+  api GET "/repos/$repo/issues/$num" | jq -r '"labels=[\([.labels[].name] | join(","))]"'
+}
+
+cmd_label_set() {
+  [ "$#" -eq 2 ] || { usage >&2; exit 2; }
+  issue="$1"; label="$2"
+  repo="$(repo_path "$(issue_repo "$issue")")"
+  num="$(issue_number "$issue")"
+
+  case "$label" in
+    agent:ready|agent:running|agent:done|agent:blocked|human:needs-review) ;;
+    *) echo "ERROR: label-set only accepts status labels: agent:ready, agent:running, agent:done, agent:blocked, human:needs-review" >&2; exit 2 ;;
+  esac
+
+  log_context "$repo"
+  labels_json=$(api GET "/repos/$repo/labels")
+  target_id=$(printf '%s' "$labels_json" | jq -r --arg name "$label" '.[] | select(.name == $name) | .id' | head -n1)
+  [ -n "$target_id" ] || { echo "label not found: $label (create it first in this repo)" >&2; exit 1; }
+
+  issue_json=$(api GET "/repos/$repo/issues/$num")
+  label_ids_json=$(printf '%s' "$issue_json" | jq --argjson target "$target_id" '
+    [ .labels[]
+      | select(.name != "agent:ready"
+          and .name != "agent:running"
+          and .name != "agent:done"
+          and .name != "agent:blocked"
+          and .name != "human:needs-review")
+      | .id
+    ] + [$target]
+    | unique
+  ')
+  payload=$(jq -n --argjson labels "$label_ids_json" '{labels:$labels}')
+  api PUT "/repos/$repo/issues/$num/labels" "$payload" | jq -r '"labels=[\([.[].name] | join(","))]"'
 }
 
 cmd_issue_create() {
@@ -447,6 +530,8 @@ case "$cmd" in
   state)        require_env; shift; cmd_state "$@" ;;
   comment)      require_env; shift; cmd_comment "$@" ;;
   label-add)    require_env; shift; cmd_label_add "$@" ;;
+  label-remove) require_env; shift; cmd_label_remove "$@" ;;
+  label-set)    require_env; shift; cmd_label_set "$@" ;;
   issue-create) require_env; shift; cmd_issue_create "$@" ;;
   *) echo "unknown command: $cmd" >&2; usage >&2; exit 2 ;;
 esac
