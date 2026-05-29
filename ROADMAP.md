@@ -94,6 +94,20 @@ completed**, not **implementation completed**.
 - Both checks kept exactly one lifecycle status label; no status-label accumulation.
 - Work Forge `glg-bot/{sandbox,voscli,incidentcli}` now has the `agent:blocked` label prepared.
 
+### 0.2.1 — Mattermost thread bridge E2E (2026-05-29)
+
+- Synthetic `vocbot` root post was created in `pjt_voc_report`.
+- `glg-bot/voscli#11` was created with `--mm-channel`, `--mm-root-id`, and `--labels agent:ready`.
+- forgebot webhook turn succeeded:
+  - recovered the SQLite Mattermost link row;
+  - called owner-agent read-only review;
+  - wrote the Forgejo comment through `comment --body-file`;
+  - moved lifecycle status to singleton `human:needs-review`;
+  - replied to the original Mattermost thread.
+- Mattermost thread reply message id: `4chwg7h1mp8ebeufj7konio5uy`.
+- `#forge-events` broadcast also went out as a separate root post and did not collide with the original thread reply.
+- Schema correction: OpenClaw message tool uses `target: "channel:<channel_id>"` plus `replyTo: "<root_id>"`; older docs saying `replyToId` were wrong.
+
 ## Near-Term Roadmap
 
 ### 1. Issue Capture

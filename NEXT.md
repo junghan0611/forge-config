@@ -16,26 +16,7 @@ Remember:
 
 ## Next actions
 
-### 1. Thread bridge E2E validation
-
-Validate the full Mattermost/OpenClaw/Forgejo return path:
-
-```text
-vocbot/forgebot live thread
-  → issue-create --mm-channel --mm-root-id
-  → Forgejo issue stores <!-- openclaw:mm ... --> metadata + SQLite row
-  → forgebot triage comment uses comment --body-file
-  → original Mattermost thread receives lifecycle reply
-```
-
-Checks:
-
-- SQLite lookup first, issue-body metadata fallback second.
-- If metadata is missing, forgebot should skip thread reply and only update Forgejo.
-- No long inline shell strings.
-- Final status uses `label-set`.
-
-### 2. Label bootstrap decision
+### 1. Label bootstrap decision
 
 `agent:blocked` is prepared on current work repos (`glg-bot/{sandbox,voscli,incidentcli}`), but new repos still need labels created manually.
 
@@ -46,7 +27,7 @@ Decide after a few more repos:
 
 Do not add this prematurely; it crosses from work-surface CLI into repo administration.
 
-### 3. Profile registry / URL sanity
+### 2. Profile registry / URL sanity
 
 Current profiles are hardcoded in `bin/forge` (`oracle`, `work`). This is acceptable while there are two profiles.
 
@@ -61,7 +42,7 @@ Candidate work:
 - validate `FORGE_URL` with an explicit `https?://` sanity check before curl;
 - keep `FORGE_REPO` leak-prevention: no unprefixed fallback.
 
-### 4. Footer identity policy
+### 3. Footer identity policy
 
 Current footer:
 
@@ -77,7 +58,7 @@ Next decision point:
 - otherwise keep workspace-level invocation discipline;
 - consider `FORGE_HOST_LABEL` only if host disclosure becomes undesirable.
 
-### 5. HMAC verification v2
+### 4. HMAC verification v2
 
 Current hook path relies on OpenClaw token/idempotency handling. Exact Forgejo HMAC verification needs raw body access.
 
@@ -89,7 +70,7 @@ Options still open:
 
 Defer until the triage loop proves stable under real traffic.
 
-### 6. GLG batch implementation sorting surface
+### 5. GLG batch implementation sorting surface
 
 After first-review issues accumulate, define the surface GLG uses to choose implementation batches.
 
