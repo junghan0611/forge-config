@@ -25,17 +25,20 @@ Human / domain owner talks to a domain bot
   → bot or sweeper detects a requirement / bug / improvement
   → Forgejo issue is created with labels and source context
   → forgebot wakes up from labels / webhook events
-  → forgebot asks the relevant repo/domain owner agent for first review
-  → owner agent classifies scope, risk, priority, and implementation need
+  → forgebot asks the relevant repo/domain owner agent for read-only first review
+  → owner agent returns reality check, owner repo, risk, scope,
+    implementation-needed?, priority, and a Forgejo comment summary
   → forgebot writes that review back to Forgejo
+  → forgebot marks the first-review triage cycle complete
   → GLG later reviews a sorted backlog and calls owner agents for focused implementation
-  → implementation, tests, and final status are recorded back on the issue
+  → implementation and tests are recorded in a later GLG-driven batch step
 ```
 
 ## Non-Goals
 
 - Build dashboards for operational teams.
 - Replace domain owners with a central UI.
+- Treat `agent:done` in the forgebot loop as implementation completed.
 - Let forgebot implement every issue immediately.
 - Treat GitHub Copilot or generic hosted coding agents as GLG owner agents.
 - Optimize for maximum parallel coding before the triage loop is trustworthy.
@@ -45,8 +48,8 @@ Human / domain owner talks to a domain bot
 | Role | Responsibility |
 |---|---|
 | **Domain bot** (`vocbot`, etc.) | Talks with the human/domain owner and surfaces requests from conversation. |
-| **forgebot** | Coordinates Forgejo issues: wakes on labels, asks owner agents for first review, writes results back. |
-| **Owner agent** | Understands one repo/domain, reviews issues, estimates risk/scope, and later helps with focused implementation. |
+| **forgebot** | Dispatcher / recorder: wakes on labels, runs the live hook sequence, asks owner agents for read-only first review when needed, writes results back. |
+| **Owner agent** | Understands one repo/domain, returns reality check / owner repo / risk / scope / implementation-needed? / priority / comment summary, and later helps with focused implementation. |
 | **GLG** | Reviews the sorted backlog, chooses implementation batches, and makes final commit/merge decisions. |
 | **forge-config** | Maintains the connector: CLI, label protocol, footer convention, and public operating docs. |
 
@@ -62,7 +65,8 @@ The basic connector now exists:
 - multi-line review/comment upload via `comment --body-file`
 
 This phase is about making the triage loop reliable before automating
-implementation.
+implementation. In this phase, `agent:done` means **first-review triage
+completed**, not **implementation completed**.
 
 ## Near-Term Roadmap
 
@@ -75,13 +79,17 @@ implementation.
 ### 2. First Review Loop
 
 - forgebot should not implement by default.
-- forgebot should identify the likely owner agent and request first review.
-- Owner-agent review should answer:
-  - Is this real work?
-  - Which repo/domain owns it?
-  - What is the risk?
-  - What is the likely implementation scope?
-  - Does GLG need to decide first?
+- forgebot should identify the likely owner agent and request **read-only** first review.
+- Live hook sequence: `state` → `label-set agent:running` → scenario decision → `comment --body-file` → final `label-set`.
+- Long comments must go through a file; no long inline shell strings.
+- Owner-agent review should return:
+  - reality check
+  - owner repo/domain
+  - risk
+  - scope
+  - implementation needed?
+  - priority
+  - Forgejo comment summary
 
 ### 3. Backlog Sorting
 
@@ -99,7 +107,7 @@ implementation.
 
 - Owner agents write implementation results back to the issue.
 - Use `comment --body-file` for long summaries, test output, and handoff notes.
-- Use `label-set agent:done` or `label-set human:needs-review` for final state.
+- Use `label-set agent:done` for first-review triage completion, or `label-set human:needs-review` when GLG judgment is required. Do not use `agent:done` to imply implementation completion in the forgebot loop.
 
 ## Label Direction
 
@@ -107,8 +115,8 @@ Status labels are mutually exclusive and should be changed with `label-set`:
 
 - `agent:ready`
 - `agent:running`
-- `agent:done`
-- `agent:blocked` — create this label in each repo before using it
+- `agent:done` — first-review triage completed in the forgebot loop
+- `agent:blocked` — create this label in each repo before using it; work forge `glg-bot/{sandbox,voscli,incidentcli}` is already prepared
 - `human:needs-review`
 
 Signal labels such as `ci:failed`, domain names, or priorities can coexist with

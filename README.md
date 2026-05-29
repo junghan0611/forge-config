@@ -52,17 +52,20 @@ Human / domain owner talks to a domain bot
   → request / bug / improvement is detected
   → Forgejo issue is created with labels and source context
   → forgebot wakes up
-  → forgebot asks the relevant owner agent for first review
-  → owner agent classifies scope, risk, priority, and implementation need
+  → forgebot asks the relevant owner agent for read-only first review
+  → owner agent returns reality check, owner repo, risk, scope,
+    implementation-needed?, priority, and a Forgejo comment summary
   → forgebot writes the review back to Forgejo
+  → forgebot marks the triage cycle complete
   → GLG later reviews the sorted backlog
   → GLG calls owner agents for focused implementation and tests
-  → completion is recorded back on the issue
+  → implementation completion is recorded in a later GLG-driven batch step
 ```
 
 The early automation target is **capture + first review + sorting**, not automatic
-implementation. Implementation happens later in focused batches so quality stays
-high.
+implementation. In the forgebot loop, `agent:done` means **first-review triage
+completed**, not **implementation completed**. Implementation happens later in
+focused GLG-driven batches so quality stays high.
 
 ## `bin/forge`
 
@@ -95,8 +98,8 @@ Status labels are mutually exclusive and should be changed with `label-set`:
 |---|---|
 | `agent:ready` | Ready for agent review |
 | `agent:running` | Picked up / under review |
-| `agent:done` | Review or work completed |
-| `agent:blocked` | Blocked — create this label in each repo before using it |
+| `agent:done` | First-review triage completed in the forgebot loop; not implementation completed |
+| `agent:blocked` | Blocked — create this label in each repo before using it; current work repos (`sandbox`, `voscli`, `incidentcli`) are prepared |
 | `human:needs-review` | GLG / human decision required |
 
 Signal labels can coexist with one status label:
@@ -132,7 +135,8 @@ machine left the trace.
 | Connector / policy | this repo | CLI, label protocol, footer convention, bot behavior |
 | Agent skill surface | `agent-config/skills/forge/` | Thin pointer consumed by agent harnesses |
 | OpenClaw | `openclaw` | Chat/session/webhook transport and forgebot runtime wiring |
-| Owner repos | `voscli`, `nixos-config`, `openclaw`, ... | Domain-specific review and implementation |
+| forgebot | OpenClaw workspace | Dispatcher / recorder: state → `label-set agent:running` → scenario decision → read-only owner review when needed → `comment --body-file` → final `label-set` |
+| Owner repos | `voscli`, `nixos-config`, `openclaw`, ... | Domain-specific first review now; focused implementation later when GLG calls the owner agent |
 
 OpenClaw does not need to remember the entire philosophy. It should provide the
 transport and runtime connection. forge-config records the public operating model.

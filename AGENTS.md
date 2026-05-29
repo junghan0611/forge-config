@@ -13,10 +13,13 @@ The intended loop:
 1. A domain bot (for example `vocbot`) talks with a human/domain owner.
 2. The request is captured as a Forgejo issue with labels and source context.
 3. Labels/webhooks wake **forgebot**.
-4. forgebot does **first-review coordination**, not implementation by default.
-5. forgebot asks the relevant repo/domain owner agent to classify scope, risk, priority, and whether implementation is needed.
-6. forgebot writes that review back to Forgejo.
-7. Later, GLG reviews the sorted backlog and directly calls owner agents for focused implementation/testing batches.
+4. forgebot is a **dispatcher / recorder**, not an implementer.
+5. forgebot may ask the relevant repo/domain owner agent for **read-only first review**.
+6. The owner agent returns reality check, owner repo, risk, scope, implementation-needed?, priority, and a Forgejo comment summary.
+7. forgebot writes that review back to Forgejo and marks the triage cycle complete.
+8. Later, GLG reviews the sorted backlog and directly calls owner agents for focused implementation/testing batches.
+
+Important: `agent:done` in the forgebot loop means **first-review triage completed**, not **implementation completed**.
 
 Your responsibility is the connector: `bin/forge`, label protocol, footer convention, public docs, and the agent skill surface. Keep OpenClaw focused on transport/runtime wiring; keep this repo focused on the public operating model.
 
@@ -33,7 +36,7 @@ Forgejo 인스턴스 위에 얹힌 운영 layer — 인프라가 아니라 **정
 ## 책임 범위 ✅
 
 - **이슈 점검** — 라벨 상태 확인, 새 이슈 분류, stale 정리
-- **라벨 전이** — `agent:ready` → `agent:running` → `agent:done` / `human:needs-review`
+- **라벨 전이** — `agent:ready` → `agent:running` → `agent:done` / `human:needs-review`. 여기서 `agent:done` 은 forgebot 루프의 **1차 검토/분류 완료**이지 구현 완료가 아니다.
 - **CICD 모니터링** — Forgejo Actions 실패 추적, `ci:failed` 라벨링
 - **sibling 담당자 호출** — 이슈가 어느 repo 영역인지 판단해 적절한 담당자에게 entwurf 던지기
 - **봇 행동 규약 유지** — footer 서명 규약 검증, 메시지 톤 일관성
@@ -88,8 +91,8 @@ Forgejo 인스턴스 위에 얹힌 운영 layer — 인프라가 아니라 **정
 |---|---:|---|
 | `agent:ready` | `#0e8a16` | 에이전트가 잡아도 됨 |
 | `agent:running` | `#fbca04` | 잡힘 — 작업 중 |
-| `agent:done` | `#0366d6` | 완료 |
-| `agent:blocked` | TBD | 막힘 — v2 상태 전이에 필요. repo에 없으면 `label-set ... agent:blocked`는 명확히 실패 |
+| `agent:done` | `#0366d6` | forgebot 루프의 1차 검토/분류 완료 — 구현 완료 아님 |
+| `agent:blocked` | TBD | 막힘 — v2 상태 전이에 필요. repo에 없으면 `label-set ... agent:blocked`는 명확히 실패. work `glg-bot/{sandbox,voscli,incidentcli}` 는 생성 완료 |
 | `human:needs-review` | `#5319e7` | 사람 판단 필요 |
 | `ci:failed` | `#d73a4a` | CI 깨짐 |
 
@@ -118,6 +121,7 @@ bin/forge label-remove ISSUE "agent:ready"
 
 # 상태 라벨군을 단일 상태로 교체
 # 상태군: agent:ready, agent:running, agent:done, agent:blocked, human:needs-review
+# forgebot 루프의 agent:done = 1차 검토/분류 완료, 구현 완료 아님.
 # 지정 라벨이 repo에 없으면 실패한다. agent:blocked는 v2 상태를 쓰기 전 repo 라벨 생성 필요.
 bin/forge label-set ISSUE "agent:running"
 
