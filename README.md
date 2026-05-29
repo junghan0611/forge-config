@@ -88,7 +88,7 @@ bin/forge issue-create [REPO] TITLE --body-file PATH [OPTIONS]
 ```
 
 Use `comment --body-file` for long reviews, test output, or handoff notes.
-Use `label-set` for lifecycle status so status labels do not accumulate.
+Use `label-set` for lifecycle status so status labels do not accumulate. For replay safety, forgebot should triage only when current lifecycle labels are exactly `{agent:ready}`; webhook payload is only a wake signal.
 
 ## Label Protocol v2
 

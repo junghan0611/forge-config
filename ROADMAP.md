@@ -136,6 +136,7 @@ completed**, not **implementation completed**.
 - Use Forgejo labels/comments as the durable sortable surface.
 - Prefer `label-set` for lifecycle status so status labels do not accumulate.
 - Keep signal labels (`ci:failed`, domain tags, priority tags) separate from status labels.
+- Duplicate/replay guard policy: webhook payload is only a wake signal; current Forgejo state wins. Proceed with forgebot triage only when the current lifecycle status label set is exactly `{agent:ready}`. If `agent:ready` is mixed with `agent:done`, `agent:running`, `agent:blocked`, or `human:needs-review`, do not run owner review again. Intentional re-run requires `label-set agent:ready` to make the lifecycle status ready-only.
 
 ### 4. Focused Implementation Batches
 
@@ -161,6 +162,14 @@ Status labels are mutually exclusive and should be changed with `label-set`:
 
 Signal labels such as `ci:failed`, domain names, or priorities can coexist with
 one status label.
+
+For forgebot replay safety, **ready-only** is the only processing state:
+
+```text
+lifecycle labels == {agent:ready}
+```
+
+A webhook event that merely contains `agent:ready` is not enough. The bot must read current state first and skip triage if any other lifecycle status is present. A human who wants to re-run triage should use `label-set agent:ready`, not `label-add agent:ready`.
 
 ## Documentation Habit
 

@@ -70,7 +70,19 @@ Options still open:
 
 Defer until the triage loop proves stable under real traffic.
 
-### 5. GLG batch implementation sorting surface
+### 5. Duplicate/replay guard live test
+
+Policy is now defined in ROADMAP.md: current Forgejo state wins over webhook payload, and forgebot proceeds only when lifecycle labels are exactly `{agent:ready}`.
+
+OpenClaw follow-up after prompt/workspace update:
+
+- Create or reuse an issue that has final status (`agent:done` or `human:needs-review`).
+- Re-add `agent:ready` without `label-set` so the lifecycle set becomes mixed.
+- Confirm forgebot reads current state and skips owner review.
+- Confirm no duplicate long comment and no duplicate owner-agent delegation.
+- Intentional re-run path should be `label-set agent:ready` → ready-only → triage allowed.
+
+### 6. GLG batch implementation sorting surface
 
 After first-review issues accumulate, define the surface GLG uses to choose implementation batches.
 
@@ -87,6 +99,7 @@ Do not automate implementation yet. The immediate goal is a reliable sorted back
 
 - Mutating commands must print `[forge] profile=... repo=... url=...` before writes.
 - Use `label-set` for lifecycle status; avoid accumulating `agent:ready,running,done`.
+- Treat webhook payload as wake signal only. Current Forgejo state wins; process only ready-only (`{agent:ready}`).
 - Use `comment --body-file` for long comments.
 - Keep forgebot as dispatcher / recorder, not implementer.
 - Keep OpenClaw as transport/runtime wiring; forge-config owns the public operating model.

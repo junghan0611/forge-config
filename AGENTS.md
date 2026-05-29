@@ -21,6 +21,8 @@ The intended loop:
 
 Important: `agent:done` in the forgebot loop means **first-review triage completed**, not **implementation completed**.
 
+Replay guard: a webhook payload is only a wake signal. Current Forgejo state wins. forgebot should proceed only when the current lifecycle status label set is exactly `{agent:ready}`. A mixed state such as `agent:ready + human:needs-review` is not ready; intentional re-run requires `label-set agent:ready`.
+
 Your responsibility is the connector: `bin/forge`, label protocol, footer convention, public docs, and the agent skill surface. Keep OpenClaw focused on transport/runtime wiring; keep this repo focused on the public operating model.
 
 > 이 문서를 읽고 있다면 당신은 **forge-config 담당자**입니다.
@@ -86,6 +88,8 @@ Forgejo 인스턴스 위에 얹힌 운영 layer — 인프라가 아니라 **정
 
 5개 라벨로 시작한다. 부족해지면 운영 기록을 보고 RFC 후 추가한다.
 `bin/forge label-add`는 라벨 이름으로 동적 ID 조회 후 부착하므로 Forgejo 내부 label id를 문서에 고정하지 않는다.
+
+forgebot duplicate/replay guard: 처리 조건은 `agent:ready` 가 *있다*가 아니라 lifecycle status set 이 정확히 `{agent:ready}` 인 ready-only 상태다. 재처리 의도는 `label-add agent:ready` 가 아니라 `label-set agent:ready` 로 표현한다.
 
 | name | color | 의미 |
 |---|---:|---|
