@@ -70,10 +70,12 @@ focused GLG-driven batches so quality stays high.
 When a bounded/minor issue is safe enough for an `auto-fix` lane, `auto-fix`
 still must not mean “silently solved.” It means **patch candidate + validation
 loop**: 1회독 direct fix/test, 2회독 adjacent same-shape sweep, 3회독 independent
-review, then follow-up issues for remaining similar problems. `bin/forge
-auto-fix-template ISSUE` emits the canonical report skeleton with a live issue
-snapshot marker (`schema`, `report_id`, `session_key`, `issue_updated_at`,
-lifecycle labels, sorted labels, provider/model, and forge-config commit).
+review, then follow-up issues for remaining similar problems. Same-shape sweep
+uses exact existing paths; a missing optional sweep path is a report finding, not
+a hook failure. `bin/forge auto-fix-template ISSUE` emits the canonical report
+skeleton with a live issue snapshot marker (`schema`, `report_id`, `session_key`,
+`issue_updated_at`, lifecycle labels, sorted labels, provider/model, and
+forge-config commit).
 
 ## `bin/forge`
 

@@ -31,11 +31,12 @@ OpenClaw owner-agent advice incorporated: keep `auto-fix` as a signal/route hint
 
 Decisions still needed before v1 automation:
 
-- patch candidate runner location: GLG/capable session, owner repo agent, tmux worker, or future OpenClaw async lane;
+- patch candidate runner location: forgebot bounded hook lane vs GLG/capable session vs owner repo agent vs tmux worker vs future OpenClaw async lane;
 - whether to add mutating `label-ensure` later, or keep `doctor-labels` + manual label creation as the safe boundary;
 - whether `auto-fix-template` snapshot marker is enough for v0 drift guard or needs a validating apply command before v1 writes;
 - final state convention for “patch candidate + validation loop recorded” before GLG commit;
 - independent reviewer selection rule for batch mode: different model/session, same owner agent resumed, or read-only sibling.
+- codify same-shape sweep hygiene: exact existing paths only; missing optional path = report finding, not hook failure.
 
 Concrete seed for v1: `glg-bot/voscli#14` KST/wording/guard-class issue.
 
