@@ -25,13 +25,15 @@ Protocol is being kept in repo docs and `bin/forge`, not a detached docs page. `
 
 ClawSweeper reference narrowed: borrow safety grammar only — conservative default, review-before-mutation, durable report, marker-backed comment, snapshot drift guard, deterministic mutation gate, lane labels. Do **not** force GLG auto-fix into ClawSweeper's Plan / Review / Apply product pipeline; our core is 회독-centered validation.
 
+OpenClaw owner-agent advice incorporated: keep `auto-fix` as a signal/route hint, not a wake label; hook turns should stay short; 3회독 independent review should be a required report section first, not forced inside OpenClaw hook runtime.
+
 Decisions still needed before automation:
 
 - label name: `auto-fix` vs namespaced `forge:auto-fix` / `lane:auto-fix`;
 - whether to add `bin/forge label-ensure` before depending on the label;
 - whether `auto-fix-template` snapshot marker is enough for v0 drift guard or needs a validating apply command;
 - final state convention for “patch candidate + validation loop recorded” before GLG commit;
-- second-pass reviewer selection rule: different model/session, same owner agent resumed, or read-only sibling.
+- second-pass reviewer selection rule for batch mode: different model/session, same owner agent resumed, or read-only sibling.
 
 Concrete seed: `glg-bot/voscli#14` KST/wording/guard-class issue.
 

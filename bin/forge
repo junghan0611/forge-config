@@ -517,17 +517,39 @@ cmd_auto_fix_template() {
   repo="$(repo_path "$(issue_repo "$issue")")"
   num="$(issue_number "$issue")"
   issue_json=$(api GET "/repos/$repo/issues/$num")
+
+  issue_updated_at=$(printf '%s\n' "$issue_json" | jq -r '.updated_at')
+  labels_sorted=$(printf '%s\n' "$issue_json" | jq -r '[.labels[].name] | sort | join(",")')
+  lifecycle=$(printf '%s\n' "$issue_json" | jq -r '[.labels[].name | select(. == "agent:ready" or . == "agent:running" or . == "agent:done" or . == "agent:blocked" or . == "human:needs-review")] | sort | join(",")')
+  report_id=$(printf '%s\n' "$FORGE_PROFILE|$repo|$num|$issue_updated_at|$labels_sorted" | sha256sum | awk '{print substr($1,1,16)}')
+  session_key="hook:forgejo:$repo:$num"
+  forge_config_commit=$(git -C "$(dirname "$0")/.." rev-parse --short HEAD 2>/dev/null || echo unknown)
+
   printf '%s\n' "$issue_json" | jq -r \
+    --arg schema "auto-fix/v1" \
+    --arg report_id "$report_id" \
+    --arg session_key "$session_key" \
     --arg profile "$FORGE_PROFILE" \
-    --arg repo "$repo" '
-    ([.labels[].name] | join(",")) as $labels
-    | "<!-- forge:auto-fix profile=\"\($profile)\" issue=\"\($repo)#\(.number)\" updated_at=\"\(.updated_at)\" labels=\"\($labels)\" v=\"1\" -->\n\n" +
+    --arg repo "$repo" \
+    --arg issue_updated_at "$issue_updated_at" \
+    --arg labels "$labels_sorted" \
+    --arg lifecycle "$lifecycle" \
+    --arg provider_model "${FORGE_MODEL:-unknown}" \
+    --arg forge_config_commit "$forge_config_commit" '
+    "<!-- forge:auto-fix schema=\"\($schema)\" report_id=\"\($report_id)\" session_key=\"\($session_key)\" forge_profile=\"\($profile)\" forge_repo=\"\($repo)\" issue_number=\"\(.number)\" issue_updated_at=\"\($issue_updated_at)\" lifecycle=\"\($lifecycle)\" labels=\"\($labels)\" provider_model=\"\($provider_model)\" forge_config_commit=\"\($forge_config_commit)\" v=\"1\" -->\n\n" +
       "## Auto-fix lane result\n\n" +
       "### Eligibility\n" +
       "- Decision: eligible / not eligible\n" +
       "- Why bounded:\n" +
       "- Owner repo:\n" +
       "- Risk:\n\n" +
+      "### Snapshot / drift guard\n" +
+      "- Report ID: `\($report_id)`\n" +
+      "- Session key: `\($session_key)`\n" +
+      "- Issue snapshot: `\($issue_updated_at)`\n" +
+      "- Lifecycle at template time: `\($lifecycle)`\n" +
+      "- Labels at template time: `\($labels)`\n" +
+      "- Target head before patch: not captured / HEAD\n\n" +
       "### 1회독 — direct fix pass\n" +
       "- Patch candidate:\n" +
       "- Direct smoke/test commands:\n" +
@@ -539,6 +561,8 @@ cmd_auto_fix_template() {
       "- Follow-up needed:\n\n" +
       "### 3회독 — independent review pass\n" +
       "- Reviewer/model/session:\n" +
+      "- Status: performed / not performed\n" +
+      "- If not performed, why:\n" +
       "- Concerns:\n" +
       "- Verdict:\n\n" +
       "### Final state meaning\n" +

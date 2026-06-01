@@ -141,7 +141,7 @@ GLG's design read: KST surface / wording / guard-type issues like this are likel
 minor enough for an `auto-fix` lane, but only if the lane includes adjacent-pattern
 sweep and second-pass validation rather than fixing one visible instance.
 
-The repo-owned surface is `bin/forge auto-fix-template ISSUE` plus this operating model. It intentionally borrows ClawSweeper's safety grammar — conservative default, review-before-mutation, durable report, marker-backed comment, snapshot drift guard, and deterministic mutation gate — without copying its Plan / Review / Apply product pipeline or GitHub-scale machinery. GLG auto-fix is 회독-centered validation.
+The repo-owned surface is `bin/forge auto-fix-template ISSUE` plus this operating model. The template marker records `schema`, `report_id`, `session_key`, `issue_updated_at`, lifecycle labels, sorted labels, provider/model, and forge-config commit so OpenClaw session memory and webhook replay never outrank current Forgejo state. It intentionally borrows ClawSweeper's safety grammar — conservative default, review-before-mutation, durable report, marker-backed comment, snapshot drift guard, and deterministic mutation gate — without copying its Plan / Review / Apply product pipeline or GitHub-scale machinery. GLG auto-fix is 회독-centered validation.
 
 ## Near-Term Roadmap
 
@@ -176,11 +176,12 @@ The repo-owned surface is `bin/forge auto-fix-template ISSUE` plus this operatin
 ### 4. Bounded Auto-fix Lane
 
 - Define when `auto-fix` is allowed: minor, bounded, reversible, testable, and with clear owner repo.
-- Keep `auto-fix` as a lane/signal, not a replacement for lifecycle status.
+- Keep `auto-fix` as a lane/signal route hint, not a wake label and not a replacement for lifecycle status.
 - Require `bin/forge auto-fix-template ISSUE` or an equivalent structured report body for comment output.
 - Require direct smoke/test output in the comment trail.
 - Require adjacent isomorphic-pattern sweep after the patch candidate.
-- Require independent third-pass review and follow-up issue creation when remaining similar problems are found.
+- Require independent third-pass review when practical; if not performed, the report must say why.
+- Require follow-up issue creation when remaining similar problems are found.
 - Prefer “patch candidate + validation loop recorded” wording over “done/solved.”
 
 ### 5. Focused Implementation Batches

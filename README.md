@@ -72,7 +72,8 @@ still must not mean “silently solved.” It means **patch candidate + validati
 loop**: 1회독 direct fix/test, 2회독 adjacent same-shape sweep, 3회독 independent
 review, then follow-up issues for remaining similar problems. `bin/forge
 auto-fix-template ISSUE` emits the canonical report skeleton with a live issue
-snapshot marker.
+snapshot marker (`schema`, `report_id`, `session_key`, `issue_updated_at`,
+lifecycle labels, sorted labels, provider/model, and forge-config commit).
 
 ## `bin/forge`
 
@@ -117,10 +118,12 @@ Signal labels can coexist with one status label:
 | `ci:failed` | CI is broken |
 
 Future automation labels such as `auto-fix` should be introduced as **lane/signal
-labels**, not as lifecycle completion states. `auto-fix` means a bounded patch
-candidate may be prepared and verified, followed by adjacent-pattern sweep and a
-recorded review trail. More domain/priority labels should be added only after
-operational need is clear.
+labels**, not as lifecycle completion states. `agent:ready` remains the wake
+label; `auto-fix` is only a route hint. `label-set` preserves non-lifecycle
+signal labels while replacing the singleton lifecycle status. `auto-fix` means a
+bounded patch candidate may be prepared and verified, followed by
+adjacent-pattern sweep and a recorded review trail. More domain/priority labels
+should be added only after operational need is clear.
 
 ## Agent Identity
 

@@ -20,7 +20,7 @@ The intended loop:
 8. For explicitly bounded/minor issues, a future `auto-fix` lane may prepare a patch candidate, but only as the start of a validation loop: 1회독 direct smoke/test, 2회독 adjacent isomorphic-pattern sweep, 3회독 independent review trace, and follow-up issues for remaining similar problems.
 9. Later, GLG reviews the sorted backlog and directly calls owner agents for focused implementation/testing batches.
 
-Important: `agent:done` in the forgebot loop means **first-review triage completed**, not **implementation completed**. Likewise, `auto-fix` must not mean “silently solved”; it means **patch candidate + validation loop recorded**.
+Important: `agent:done` in the forgebot loop means **first-review triage completed**, not **implementation completed**. Likewise, `auto-fix` must not mean “silently solved”; it means **patch candidate + validation loop recorded**. `auto-fix` is a signal/route hint; `agent:ready` remains the wake label.
 
 Replay guard: a webhook payload is only a wake signal. Current Forgejo state wins. forgebot should proceed only when the current lifecycle status label set is exactly `{agent:ready}`. A mixed state such as `agent:ready + human:needs-review` is not ready; intentional re-run requires `label-set agent:ready`.
 
