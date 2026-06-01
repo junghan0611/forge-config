@@ -36,7 +36,7 @@ Decisions still needed before v1 automation:
 - whether `auto-fix-template` snapshot marker is enough for v0 drift guard or needs a validating apply command before v1 writes;
 - final state convention for “patch candidate + validation loop recorded” before GLG commit;
 - independent reviewer selection rule for batch mode: different model/session, same owner agent resumed, or read-only sibling.
-- codify same-shape sweep hygiene: exact existing paths only; missing optional path = report finding, not hook failure.
+- codify same-shape sweep hygiene: exact existing paths only; missing optional path or zero-match `rg` = report finding, not hook failure.
 
 Concrete seed for v1: `glg-bot/voscli#14` KST/wording/guard-class issue.
 

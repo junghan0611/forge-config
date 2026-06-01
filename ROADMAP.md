@@ -105,7 +105,7 @@ completed**, not **implementation completed**.
   - Replay/idempotency ping on `voscli#15`: existing `agent:done + auto-fix` state did not create a duplicate auto-fix report.
 - Operational finding: every repo that uses the lane needs an `auto-fix` signal label ahead of time. `bin/forge doctor-labels [REPO]` now checks required lifecycle/signal labels before onboarding a repo.
 - Marker `lifecycle` and `labels` are **template-time snapshots**, usually `agent:running + auto-fix` because forgebot sets running before generating the report. Final state remains current Forgejo state.
-- Follow-up from `glg-bot/voscli#14`: adjacent sweep paths must be exact, and missing optional sweep paths are **nonfatal findings**, not hook failures. Record `path missing` and continue when the bounded patch/report is otherwise valid.
+- Follow-up from `glg-bot/voscli#14/#16`: adjacent sweep paths must be exact, and missing optional sweep paths or zero-match `rg` results are **nonfatal findings**, not hook failures. Record `path missing` / `no matches` and continue when the bounded patch/report is otherwise valid.
 
 ### 0.2.1 — Mattermost thread bridge E2E (2026-05-29)
 
