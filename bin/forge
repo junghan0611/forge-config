@@ -15,6 +15,7 @@ Usage:
   forge [--forge oracle|work] issue-create [REPO] TITLE BODY               [OPTIONS]
   forge [--forge oracle|work] issue-create [REPO] TITLE --body-file PATH   [OPTIONS]
   forge [--forge oracle|work] issue-create [REPO] TITLE --body-file -      [OPTIONS]   # stdin
+  forge [--forge oracle|work] auto-fix-template ISSUE
 
 OPTIONS (comment):
   --body-file PATH|-                                      # multi-line body from file/stdin
@@ -510,6 +511,41 @@ cmd_state() {
     end'
 }
 
+cmd_auto_fix_template() {
+  [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+  issue="$1"
+  repo="$(repo_path "$(issue_repo "$issue")")"
+  num="$(issue_number "$issue")"
+  issue_json=$(api GET "/repos/$repo/issues/$num")
+  printf '%s\n' "$issue_json" | jq -r \
+    --arg profile "$FORGE_PROFILE" \
+    --arg repo "$repo" '
+    ([.labels[].name] | join(",")) as $labels
+    | "<!-- forge:auto-fix profile=\"\($profile)\" issue=\"\($repo)#\(.number)\" updated_at=\"\(.updated_at)\" labels=\"\($labels)\" v=\"1\" -->\n\n" +
+      "## Auto-fix lane result\n\n" +
+      "### Eligibility\n" +
+      "- Decision: eligible / not eligible\n" +
+      "- Why bounded:\n" +
+      "- Owner repo:\n" +
+      "- Risk:\n\n" +
+      "### 1회독 — direct fix pass\n" +
+      "- Patch candidate:\n" +
+      "- Direct smoke/test commands:\n" +
+      "- Result:\n\n" +
+      "### 2회독 — adjacent same-shape pass\n" +
+      "- Search targets:\n" +
+      "- Commands:\n" +
+      "- Findings:\n" +
+      "- Follow-up needed:\n\n" +
+      "### 3회독 — independent review pass\n" +
+      "- Reviewer/model/session:\n" +
+      "- Concerns:\n" +
+      "- Verdict:\n\n" +
+      "### Final state meaning\n" +
+      "Patch candidate + validation loop recorded. This does not mean auto-merged or human-release-approved."
+  '
+}
+
 # Pre-parse profile override flag(s) before the command verb.
 while [ "$#" -gt 0 ]; do
   case "${1:-}" in
@@ -528,6 +564,7 @@ case "$cmd" in
   repos)        require_env; shift; cmd_repos "$@" ;;
   list-open)    require_env; shift; cmd_list_open "$@" ;;
   state)        require_env; shift; cmd_state "$@" ;;
+  auto-fix-template) require_env; shift; cmd_auto_fix_template "$@" ;;
   comment)      require_env; shift; cmd_comment "$@" ;;
   label-add)    require_env; shift; cmd_label_add "$@" ;;
   label-remove) require_env; shift; cmd_label_remove "$@" ;;

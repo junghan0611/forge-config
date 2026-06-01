@@ -17,9 +17,10 @@ The intended loop:
 5. forgebot may ask the relevant repo/domain owner agent for **read-only first review**.
 6. The owner agent returns reality check, owner repo, risk, scope, implementation-needed?, priority, and a Forgejo comment summary.
 7. forgebot writes that review back to Forgejo and marks the triage cycle complete.
-8. Later, GLG reviews the sorted backlog and directly calls owner agents for focused implementation/testing batches.
+8. For explicitly bounded/minor issues, a future `auto-fix` lane may prepare a patch candidate, but only as the start of a validation loop: 1회독 direct smoke/test, 2회독 adjacent isomorphic-pattern sweep, 3회독 independent review trace, and follow-up issues for remaining similar problems.
+9. Later, GLG reviews the sorted backlog and directly calls owner agents for focused implementation/testing batches.
 
-Important: `agent:done` in the forgebot loop means **first-review triage completed**, not **implementation completed**.
+Important: `agent:done` in the forgebot loop means **first-review triage completed**, not **implementation completed**. Likewise, `auto-fix` must not mean “silently solved”; it means **patch candidate + validation loop recorded**.
 
 Replay guard: a webhook payload is only a wake signal. Current Forgejo state wins. forgebot should proceed only when the current lifecycle status label set is exactly `{agent:ready}`. A mixed state such as `agent:ready + human:needs-review` is not ready; intentional re-run requires `label-set agent:ready`.
 
@@ -43,12 +44,13 @@ Forgejo 인스턴스 위에 얹힌 운영 layer — 인프라가 아니라 **정
 - **sibling 담당자 호출** — 이슈가 어느 repo 영역인지 판단해 적절한 담당자에게 entwurf 던지기
 - **봇 행동 규약 유지** — footer 서명 규약 검증, 메시지 톤 일관성
 - **라벨/protocol 진화** — 5개 라벨로 부족해지면 RFC 후 추가
+- **auto-fix 검증 루프 설계** — bounded issue 판정, 패치 후보, smoke/test, 동형 패턴 전수조사, 독립 리뷰, follow-up issue 규칙. `bin/forge auto-fix-template ISSUE`가 표준 코멘트 골격과 snapshot marker를 만든다.
 - **다중 호스트 정책** — oracle vs alskdjf 역할 분리 유지
 
 ## 책임 아님 ❌
 
 - ❌ **Docker / Caddy / 호스트 설정** — `nixos-config/docker/forge/` 담당자 영역
-- ❌ **개별 repo 의 코드 수정** — 그 repo 의 AGENTS.md 담당자에게 위임
+- ❌ **개별 repo 의 코드 수정** — 그 repo 의 AGENTS.md 담당자에게 위임. 단, future `auto-fix` lane은 repo owner 경계와 검증 루프가 명확할 때의 protocol로 따로 설계한다.
 - ❌ **시크릿 관리** — 토큰/패스워드는 `~/.env.local` 만, 절대 commit X
 - ❌ **사람 결정 가로채기** — `human:needs-review` 라벨은 힣 검토 대기
 - ❌ **자동 merge** — v1 에서는 merge 는 사람 게이트

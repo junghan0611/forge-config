@@ -67,6 +67,13 @@ implementation. In the forgebot loop, `agent:done` means **first-review triage
 completed**, not **implementation completed**. Implementation happens later in
 focused GLG-driven batches so quality stays high.
 
+When a bounded/minor issue is safe enough for an `auto-fix` lane, `auto-fix`
+still must not mean “silently solved.” It means **patch candidate + validation
+loop**: 1회독 direct fix/test, 2회독 adjacent same-shape sweep, 3회독 independent
+review, then follow-up issues for remaining similar problems. `bin/forge
+auto-fix-template ISSUE` emits the canonical report skeleton with a live issue
+snapshot marker.
+
 ## `bin/forge`
 
 `bin/forge` is a small POSIX shell + curl + jq CLI used by agents.
@@ -85,6 +92,7 @@ bin/forge label-remove ISSUE LABEL
 bin/forge label-set ISSUE STATUS_LABEL
 bin/forge issue-create [REPO] TITLE BODY [OPTIONS]
 bin/forge issue-create [REPO] TITLE --body-file PATH [OPTIONS]
+bin/forge auto-fix-template ISSUE
 ```
 
 Use `comment --body-file` for long reviews, test output, or handoff notes.
@@ -108,7 +116,11 @@ Signal labels can coexist with one status label:
 |---|---|
 | `ci:failed` | CI is broken |
 
-More domain/priority labels should be added only after operational need is clear.
+Future automation labels such as `auto-fix` should be introduced as **lane/signal
+labels**, not as lifecycle completion states. `auto-fix` means a bounded patch
+candidate may be prepared and verified, followed by adjacent-pattern sweep and a
+recorded review trail. More domain/priority labels should be added only after
+operational need is clear.
 
 ## Agent Identity
 
@@ -134,8 +146,8 @@ machine left the trace.
 | Infrastructure | `nixos-config/docker/forge/` | Forgejo, Caddy, host deployment |
 | Connector / policy | this repo | CLI, label protocol, footer convention, bot behavior |
 | Agent skill surface | `agent-config/skills/forge/` | Thin pointer consumed by agent harnesses |
-| OpenClaw | `openclaw` | Chat/session/webhook transport and forgebot runtime wiring |
-| forgebot | OpenClaw workspace | Dispatcher / recorder: state → `label-set agent:running` → scenario decision → read-only owner review when needed → `comment --body-file` → final `label-set` |
+| OpenClaw | `openclaw` | Chat/session/webhook transport, auth/model profiles, backend/gateway stability, forgebot runtime wiring |
+| forgebot | OpenClaw workspace | Dispatcher / recorder: state → `label-set agent:running` → scenario decision → read-only owner review or bounded `auto-fix` validation lane when explicitly supported → `comment --body-file` → final `label-set` |
 | Owner repos | `voscli`, `nixos-config`, `openclaw`, ... | Domain-specific first review now; focused implementation later when GLG calls the owner agent |
 
 OpenClaw does not need to remember the entire philosophy. It should provide the

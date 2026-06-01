@@ -2,10 +2,12 @@
 
 > Volatile next actions only. Durable operating model lives in [README.md](./README.md), [ROADMAP.md](./ROADMAP.md), and [AGENTS.md](./AGENTS.md).
 
-## Current stance — 2026-05-29 PM
+## Current stance — 2026-06-01 AM
 
 forge-config is the connector between OpenClaw/forgebot, owner agents, and GLG's later batch implementation flow.
 The forgebot v2 triage loop is already live and documented in [ROADMAP.md](./ROADMAP.md) § "0.2.0 — forgebot triage loop v2".
+
+New design pressure from `glg-bot/voscli#14`: `auto-fix` must mean **patch candidate + validation loop**, not “resolved.” The goal is to increase 검증 회독 count and preserve review-session traces as assets.
 
 Remember:
 
@@ -13,10 +15,27 @@ Remember:
 - forgebot is dispatcher / recorder, not implementer.
 - owner-agent calls are read-only first review by default.
 - canonical hook sequence is `state → label-set agent:running → scenario decision → comment --body-file → final label-set`.
+- OpenClaw owns transport/runtime/auth/model/gateway/lifecycle wiring up to “forgebot wakes”; forge-config owns lifecycle protocol, `auto-fix` semantics, sweeper semantics, validation loops, and follow-up issue rules.
 
 ## Next actions
 
-### 1. Label bootstrap decision
+### 1. Auto-fix lane protocol
+
+Protocol is being kept in repo docs and `bin/forge`, not a detached docs page. `bin/forge auto-fix-template ISSUE` now emits the canonical report skeleton with live snapshot marker.
+
+ClawSweeper reference narrowed: borrow safety grammar only — conservative default, review-before-mutation, durable report, marker-backed comment, snapshot drift guard, deterministic mutation gate, lane labels. Do **not** force GLG auto-fix into ClawSweeper's Plan / Review / Apply product pipeline; our core is 회독-centered validation.
+
+Decisions still needed before automation:
+
+- label name: `auto-fix` vs namespaced `forge:auto-fix` / `lane:auto-fix`;
+- whether to add `bin/forge label-ensure` before depending on the label;
+- whether `auto-fix-template` snapshot marker is enough for v0 drift guard or needs a validating apply command;
+- final state convention for “patch candidate + validation loop recorded” before GLG commit;
+- second-pass reviewer selection rule: different model/session, same owner agent resumed, or read-only sibling.
+
+Concrete seed: `glg-bot/voscli#14` KST/wording/guard-class issue.
+
+### 2. Label bootstrap decision
 
 `agent:blocked` is prepared on current work repos (`glg-bot/{sandbox,voscli,incidentcli}`), but new repos still need labels created manually.
 
@@ -27,7 +46,7 @@ Decide after a few more repos:
 
 Do not add this prematurely; it crosses from work-surface CLI into repo administration.
 
-### 2. Profile registry / URL sanity
+### 3. Profile registry / URL sanity
 
 Current profiles are hardcoded in `bin/forge` (`oracle`, `work`). This is acceptable while there are two profiles.
 
@@ -42,7 +61,7 @@ Candidate work:
 - validate `FORGE_URL` with an explicit `https?://` sanity check before curl;
 - keep `FORGE_REPO` leak-prevention: no unprefixed fallback.
 
-### 3. Footer identity policy
+### 4. Footer identity policy
 
 Current footer:
 
@@ -58,7 +77,7 @@ Next decision point:
 - otherwise keep workspace-level invocation discipline;
 - consider `FORGE_HOST_LABEL` only if host disclosure becomes undesirable.
 
-### 4. HMAC verification v2
+### 5. HMAC verification v2
 
 Current hook path relies on OpenClaw token/idempotency handling. Exact Forgejo HMAC verification needs raw body access.
 
@@ -70,7 +89,7 @@ Options still open:
 
 Defer until the triage loop proves stable under real traffic.
 
-### 5. Duplicate/replay guard live test
+### 6. Duplicate/replay guard live test
 
 Policy is now defined in ROADMAP.md: current Forgejo state wins over webhook payload, and forgebot proceeds only when lifecycle labels are exactly `{agent:ready}`.
 
@@ -82,7 +101,7 @@ OpenClaw follow-up after prompt/workspace update:
 - Confirm no duplicate long comment and no duplicate owner-agent delegation.
 - Intentional re-run path should be `label-set agent:ready` → ready-only → triage allowed.
 
-### 6. GLG batch implementation sorting surface
+### 7. GLG batch implementation sorting surface
 
 After first-review issues accumulate, define the surface GLG uses to choose implementation batches.
 
@@ -103,3 +122,4 @@ Do not automate implementation yet. The immediate goal is a reliable sorted back
 - Use `comment --body-file` for long comments.
 - Keep forgebot as dispatcher / recorder, not implementer.
 - Keep OpenClaw as transport/runtime wiring; forge-config owns the public operating model.
+- Do not let `auto-fix` collapse into single-instance quick fixes; always sweep adjacent same-shape problems and leave the validation trail.

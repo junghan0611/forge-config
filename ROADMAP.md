@@ -39,6 +39,7 @@ Human / domain owner talks to a domain bot
 - Build dashboards for operational teams.
 - Replace domain owners with a central UI.
 - Treat `agent:done` in the forgebot loop as implementation completed.
+- Treat `auto-fix` as “solved” without a validation trail.
 - Let forgebot implement every issue immediately.
 - Treat GitHub Copilot or generic hosted coding agents as GLG owner agents.
 - Optimize for maximum parallel coding before the triage loop is trustworthy.
@@ -48,7 +49,7 @@ Human / domain owner talks to a domain bot
 | Role | Responsibility |
 |---|---|
 | **Domain bot** (`vocbot`, etc.) | Talks with the human/domain owner and surfaces requests from conversation. |
-| **forgebot** | Dispatcher / recorder: wakes on labels, runs the live hook sequence, asks owner agents for read-only first review when needed, writes results back. |
+| **forgebot** | Dispatcher / recorder: wakes on labels, runs the live hook sequence, asks owner agents for read-only first review when needed, writes results back. For explicitly bounded/minor lanes it may coordinate an `auto-fix` validation loop, but the product semantics live in forge-config, not OpenClaw. |
 | **Owner agent** | Understands one repo/domain, returns reality check / owner repo / risk / scope / implementation-needed? / priority / comment summary, and later helps with focused implementation. |
 | **GLG** | Reviews the sorted backlog, chooses implementation batches, and makes final commit/merge decisions. |
 | **forge-config** | Maintains the connector: CLI, label protocol, footer convention, and public operating docs. |
@@ -108,6 +109,40 @@ completed**, not **implementation completed**.
 - `#forge-events` broadcast also went out as a separate root post and did not collide with the original thread reply.
 - Schema correction: OpenClaw message tool uses `target: "channel:<channel_id>"` plus `replyTo: "<root_id>"`; older docs saying `replyToId` were wrong.
 
+## Auto-fix Direction — Validation Loop, Not Completion
+
+`auto-fix` should be designed as a lane/signal for **bounded patch candidate +
+extra verification**, not as a lifecycle status that means the issue is solved.
+The key product goal is to increase review passes — 1회독, 2회독, 3회독 — while
+keeping the session traces as reusable assets.
+
+Expected routine:
+
+1. Intake / Gate — classify the issue as minor/bounded enough for `auto-fix` candidacy and keep lifecycle labels singleton.
+2. 1회독 direct fix pass — prepare a patch candidate and run directly related smoke/tests.
+3. 2회독 adjacent same-shape pass — sweep similar commands, guards, wording, time surfaces, schema keys, and tests.
+4. 3회독 independent review pass — have a different model/session or read-only reviewer inspect diff, tests, and sweep result.
+5. Publish / Gate — re-fetch live issue state, skip on snapshot drift, write a structured report, create follow-up issues if needed.
+6. End with a label/comment meaning “patch candidate + validation loop recorded,” not silent implementation completion.
+
+This lane belongs to forge-config / forge skill / forgebot design. OpenClaw owns
+transport, webhook/channel wiring, auth/model profiles, backend/gateway stability,
+heartbeat, and session isolation — up to “the issue wakes forgebot.”
+
+### Recent trigger — `glg-bot/voscli#14` (2026-06-01)
+
+`agent:ready` woke forgebot, but the `openai-codex` auth profile was empty, so
+forgebot died quickly. After restoring GPT auth profile and restarting the
+gateway, both `openai/gpt-5.4` and `anthropic/claude-sonnet-4-6` forgebot runs
+were GREEN. Replaying `#14` produced a first-review comment and ended at
+`human:needs-review`.
+
+GLG's design read: KST surface / wording / guard-type issues like this are likely
+minor enough for an `auto-fix` lane, but only if the lane includes adjacent-pattern
+sweep and second-pass validation rather than fixing one visible instance.
+
+The repo-owned surface is `bin/forge auto-fix-template ISSUE` plus this operating model. It intentionally borrows ClawSweeper's safety grammar — conservative default, review-before-mutation, durable report, marker-backed comment, snapshot drift guard, and deterministic mutation gate — without copying its Plan / Review / Apply product pipeline or GitHub-scale machinery. GLG auto-fix is 회독-centered validation.
+
 ## Near-Term Roadmap
 
 ### 1. Issue Capture
@@ -138,13 +173,23 @@ completed**, not **implementation completed**.
 - Keep signal labels (`ci:failed`, domain tags, priority tags) separate from status labels.
 - Duplicate/replay guard policy: webhook payload is only a wake signal; current Forgejo state wins. Proceed with forgebot triage only when the current lifecycle status label set is exactly `{agent:ready}`. If `agent:ready` is mixed with `agent:done`, `agent:running`, `agent:blocked`, or `human:needs-review`, do not run owner review again. Intentional re-run requires `label-set agent:ready` to make the lifecycle status ready-only.
 
-### 4. Focused Implementation Batches
+### 4. Bounded Auto-fix Lane
+
+- Define when `auto-fix` is allowed: minor, bounded, reversible, testable, and with clear owner repo.
+- Keep `auto-fix` as a lane/signal, not a replacement for lifecycle status.
+- Require `bin/forge auto-fix-template ISSUE` or an equivalent structured report body for comment output.
+- Require direct smoke/test output in the comment trail.
+- Require adjacent isomorphic-pattern sweep after the patch candidate.
+- Require independent third-pass review and follow-up issue creation when remaining similar problems are found.
+- Prefer “patch candidate + validation loop recorded” wording over “done/solved.”
+
+### 5. Focused Implementation Batches
 
 - GLG reviews sorted issues and calls owner agents directly.
 - Owner agents may use sibling agents (`entwurf`) for analysis, tests, or review.
 - Implementation should be done in focused batches, not one issue at a time by an always-on bot.
 
-### 5. Completion Trail
+### 6. Completion Trail
 
 - Owner agents write implementation results back to the issue.
 - Use `comment --body-file` for long summaries, test output, and handoff notes.
