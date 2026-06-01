@@ -19,26 +19,30 @@ Remember:
 
 ## Next actions
 
-### 1. Auto-fix lane v1 — patch candidate runner design
+### 1. Auto-fix v1 runner policy — freeze OpenClaw, move semantics here
 
 v0 is live GREEN: sandbox#13 and voscli#15 both passed `agent:ready + auto-fix` → report skeleton → `agent:done + auto-fix`, and replay/idempotency smoke did not duplicate reports. Details moved to [ROADMAP.md](./ROADMAP.md) § "0.2.2 — auto-fix v0 signal routing E2E".
 
-Protocol is being kept in repo docs and `bin/forge`, not a detached docs page. `bin/forge auto-fix-template ISSUE` emits the canonical report skeleton with live snapshot marker. `bin/forge doctor-labels REPO` checks required lifecycle/signal labels before a repo is onboarded to the lane.
+v1 seed is also live GREEN/YELLOW→GREEN:
 
-ClawSweeper reference narrowed: borrow safety grammar only — conservative default, review-before-mutation, durable report, marker-backed comment, snapshot drift guard, deterministic mutation gate, lane labels. Do **not** force GLG auto-fix into ClawSweeper's Plan / Review / Apply product pipeline; our core is 회독-centered validation.
+- `glg-bot/voscli#14`: forgebot performed bounded workspace guard patch (`workspace-voc/SOUL.md`, `workspace-voc/TOOLS.md`) and recorded filled report; final `agent:done + auto-fix`.
+- `glg-bot/voscli#16`: exposed `rg` no-match as another nonfatal sweep case after missing-path fix.
+- `glg-bot/voscli#17`: post-fix regression passed (`agent:done + auto-fix`, comment 1, no new outcome=error observed).
 
-OpenClaw owner-agent advice incorporated: keep `auto-fix` as a signal/route hint, not a wake label; hook turns should stay short; 3회독 independent review should be a required report section first, not forced inside OpenClaw hook runtime.
+OpenClaw side should now freeze at: wake/routing, bounded workspace/doc/config patch allowance, no owner entwurf, no broad source implementation, missing optional path / `rg` no-match as report findings.
 
-Decisions still needed before v1 automation:
+Protocol is kept in repo docs and `bin/forge`, not a detached docs page. `bin/forge auto-fix-template ISSUE` emits the canonical report skeleton with live snapshot marker. `bin/forge doctor-labels REPO` checks required lifecycle/signal labels before a repo is onboarded to the lane.
 
-- patch candidate runner location: forgebot bounded hook lane vs GLG/capable session vs owner repo agent vs tmux worker vs future OpenClaw async lane;
-- whether to add mutating `label-ensure` later, or keep `doctor-labels` + manual label creation as the safe boundary;
-- whether `auto-fix-template` snapshot marker is enough for v0 drift guard or needs a validating apply command before v1 writes;
-- final state convention for “patch candidate + validation loop recorded” before GLG commit;
-- independent reviewer selection rule for batch mode: different model/session, same owner agent resumed, or read-only sibling.
-- codify same-shape sweep hygiene: exact existing paths only; missing optional path or zero-match `rg` = report finding, not hook failure.
+Next forge-config work before expanding v1:
 
-Concrete seed for v1: `glg-bot/voscli#14` KST/wording/guard-class issue.
+- Write runner policy into README/ROADMAP/AGENTS as stable rule, not only OpenClaw prompt:
+  - allowed in hook: docs, prompts, workspace guards, small config surfaces;
+  - forbidden in hook: broad product source implementation, long builds/tests, dependency installs, owner entwurf;
+  - report required: exact files, commands, diff stat, same-shape sweep, independent review status, final meaning;
+  - sweep hygiene: exact existing paths only; missing optional path or zero-match `rg` = report finding, not hook failure.
+- Decide whether `doctor-labels` + manual label creation stays the safe boundary, or add mutating `label-ensure` later.
+- Decide whether a validating apply command is needed before v1 writes, or template marker + current Forgejo state is enough for now.
+- Define independent reviewer selection for later batch mode: different model/session, same owner agent resumed, or read-only sibling.
 
 ### 2. Label bootstrap decision
 
