@@ -44,7 +44,7 @@ Forgejo 인스턴스 위에 얹힌 운영 layer — 인프라가 아니라 **정
 - **sibling 담당자 호출** — 이슈가 어느 repo 영역인지 판단해 적절한 담당자에게 entwurf 던지기
 - **봇 행동 규약 유지** — footer 서명 규약 검증, 메시지 톤 일관성
 - **라벨/protocol 진화** — 5개 라벨로 부족해지면 RFC 후 추가
-- **auto-fix 검증 루프 설계** — bounded issue 판정, 패치 후보, smoke/test, 동형 패턴 전수조사, 독립 리뷰, follow-up issue 규칙. `bin/forge auto-fix-template ISSUE`가 표준 코멘트 골격과 snapshot marker를 만든다.
+- **auto-fix 검증 루프 설계** — bounded issue 판정, 패치 후보, smoke/test, 동형 패턴 전수조사, 독립 리뷰, follow-up issue 규칙. `bin/forge auto-fix-template ISSUE`가 표준 코멘트 골격과 snapshot marker를 만들고, `bin/forge doctor-labels REPO`가 repo별 필수 lifecycle/signal label 준비 상태를 점검한다.
 - **다중 호스트 정책** — oracle vs alskdjf 역할 분리 유지
 
 ## 책임 아님 ❌

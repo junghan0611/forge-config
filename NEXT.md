@@ -19,34 +19,36 @@ Remember:
 
 ## Next actions
 
-### 1. Auto-fix lane protocol
+### 1. Auto-fix lane v1 — patch candidate runner design
 
-Protocol is being kept in repo docs and `bin/forge`, not a detached docs page. `bin/forge auto-fix-template ISSUE` now emits the canonical report skeleton with live snapshot marker.
+v0 is live GREEN: sandbox#13 and voscli#15 both passed `agent:ready + auto-fix` → report skeleton → `agent:done + auto-fix`, and replay/idempotency smoke did not duplicate reports. Details moved to [ROADMAP.md](./ROADMAP.md) § "0.2.2 — auto-fix v0 signal routing E2E".
+
+Protocol is being kept in repo docs and `bin/forge`, not a detached docs page. `bin/forge auto-fix-template ISSUE` emits the canonical report skeleton with live snapshot marker. `bin/forge doctor-labels REPO` checks required lifecycle/signal labels before a repo is onboarded to the lane.
 
 ClawSweeper reference narrowed: borrow safety grammar only — conservative default, review-before-mutation, durable report, marker-backed comment, snapshot drift guard, deterministic mutation gate, lane labels. Do **not** force GLG auto-fix into ClawSweeper's Plan / Review / Apply product pipeline; our core is 회독-centered validation.
 
 OpenClaw owner-agent advice incorporated: keep `auto-fix` as a signal/route hint, not a wake label; hook turns should stay short; 3회독 independent review should be a required report section first, not forced inside OpenClaw hook runtime.
 
-Decisions still needed before automation:
+Decisions still needed before v1 automation:
 
-- label name: `auto-fix` vs namespaced `forge:auto-fix` / `lane:auto-fix`;
-- whether to add `bin/forge label-ensure` before depending on the label;
-- whether `auto-fix-template` snapshot marker is enough for v0 drift guard or needs a validating apply command;
+- patch candidate runner location: GLG/capable session, owner repo agent, tmux worker, or future OpenClaw async lane;
+- whether to add mutating `label-ensure` later, or keep `doctor-labels` + manual label creation as the safe boundary;
+- whether `auto-fix-template` snapshot marker is enough for v0 drift guard or needs a validating apply command before v1 writes;
 - final state convention for “patch candidate + validation loop recorded” before GLG commit;
-- second-pass reviewer selection rule for batch mode: different model/session, same owner agent resumed, or read-only sibling.
+- independent reviewer selection rule for batch mode: different model/session, same owner agent resumed, or read-only sibling.
 
-Concrete seed: `glg-bot/voscli#14` KST/wording/guard-class issue.
+Concrete seed for v1: `glg-bot/voscli#14` KST/wording/guard-class issue.
 
 ### 2. Label bootstrap decision
 
-`agent:blocked` is prepared on current work repos (`glg-bot/{sandbox,voscli,incidentcli}`), but new repos still need labels created manually.
+`agent:blocked` and `auto-fix` are prepared on current tested work repos (`glg-bot/{sandbox,voscli}`). `incidentcli` and future repos still need label checks before onboarding.
 
-Decide after a few more repos:
+Current safe boundary:
 
-- keep manual label creation as operational setup, or
-- add a `bootstrap-labels` / `label-ensure` command to `bin/forge`.
+- `bin/forge doctor-labels REPO` checks required labels and exits non-zero when missing.
+- Label creation remains manual for now.
 
-Do not add this prematurely; it crosses from work-surface CLI into repo administration.
+Revisit mutating `bootstrap-labels` / `label-ensure` only after another repo needs onboarding. Do not add this prematurely; it crosses from work-surface CLI into repo administration.
 
 ### 3. Profile registry / URL sanity
 
@@ -93,14 +95,12 @@ Defer until the triage loop proves stable under real traffic.
 
 ### 6. Duplicate/replay guard live test
 
-Policy is now defined in ROADMAP.md: current Forgejo state wins over webhook payload, and forgebot proceeds only when lifecycle labels are exactly `{agent:ready}`.
+Basic replay/idempotency smoke passed on `glg-bot/voscli#15`: a manual ping after final `agent:done + auto-fix` did not create another auto-fix report.
 
-OpenClaw follow-up after prompt/workspace update:
+Stronger mixed-lifecycle test remains optional:
 
-- Create or reuse an issue that has final status (`agent:done` or `human:needs-review`).
-- Re-add `agent:ready` without `label-set` so the lifecycle set becomes mixed.
+- Re-add `agent:ready` without `label-set` so lifecycle becomes mixed.
 - Confirm forgebot reads current state and skips owner review.
-- Confirm no duplicate long comment and no duplicate owner-agent delegation.
 - Intentional re-run path should be `label-set agent:ready` → ready-only → triage allowed.
 
 ### 7. GLG batch implementation sorting surface

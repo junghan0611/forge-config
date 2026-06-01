@@ -95,6 +95,17 @@ completed**, not **implementation completed**.
 - Both checks kept exactly one lifecycle status label; no status-label accumulation.
 - Work Forge `glg-bot/{sandbox,voscli,incidentcli}` now has the `agent:blocked` label prepared.
 
+### 0.2.2 — auto-fix v0 signal routing E2E (2026-06-01)
+
+- forge-config added `bin/forge auto-fix-template ISSUE`, producing a structured report skeleton with marker fields: `schema`, `report_id`, `session_key`, `issue_updated_at`, lifecycle snapshot, sorted labels, provider/model, and forge-config commit.
+- OpenClaw live prompt treats `auto-fix` as a signal/route hint, not as lifecycle and not as a wake label. `agent:ready` remains the wake label.
+- Live E2E passed:
+  - `glg-bot/sandbox#13`: `agent:ready + auto-fix` → `agent:running + auto-fix` → report comment → `agent:done + auto-fix`.
+  - `glg-bot/voscli#15`: same transition, ~20s runtime, no broad implementation and no owner-agent delegation.
+  - Replay/idempotency ping on `voscli#15`: existing `agent:done + auto-fix` state did not create a duplicate auto-fix report.
+- Operational finding: every repo that uses the lane needs an `auto-fix` signal label ahead of time. `bin/forge doctor-labels [REPO]` now checks required lifecycle/signal labels before onboarding a repo.
+- Marker `lifecycle` and `labels` are **template-time snapshots**, usually `agent:running + auto-fix` because forgebot sets running before generating the report. Final state remains current Forgejo state.
+
 ### 0.2.1 — Mattermost thread bridge E2E (2026-05-29)
 
 - Synthetic `vocbot` root post was created in `pjt_voc_report`.
@@ -177,6 +188,7 @@ The repo-owned surface is `bin/forge auto-fix-template ISSUE` plus this operatin
 
 - Define when `auto-fix` is allowed: minor, bounded, reversible, testable, and with clear owner repo.
 - Keep `auto-fix` as a lane/signal route hint, not a wake label and not a replacement for lifecycle status.
+- Require `bin/forge doctor-labels REPO` before onboarding a repo to the lane.
 - Require `bin/forge auto-fix-template ISSUE` or an equivalent structured report body for comment output.
 - Require direct smoke/test output in the comment trail.
 - Require adjacent isomorphic-pattern sweep after the patch candidate.

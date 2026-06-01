@@ -94,10 +94,11 @@ bin/forge label-set ISSUE STATUS_LABEL
 bin/forge issue-create [REPO] TITLE BODY [OPTIONS]
 bin/forge issue-create [REPO] TITLE --body-file PATH [OPTIONS]
 bin/forge auto-fix-template ISSUE
+bin/forge doctor-labels [REPO]
 ```
 
 Use `comment --body-file` for long reviews, test output, or handoff notes.
-Use `label-set` for lifecycle status so status labels do not accumulate. For replay safety, forgebot should triage only when current lifecycle labels are exactly `{agent:ready}`; webhook payload is only a wake signal.
+Use `label-set` for lifecycle status so status labels do not accumulate. For replay safety, forgebot should triage only when current lifecycle labels are exactly `{agent:ready}`; webhook payload is only a wake signal. Use `doctor-labels` before putting a repo on the auto-fix lane; it fails if required lifecycle/signal labels are missing.
 
 ## Label Protocol v2
 
