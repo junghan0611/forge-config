@@ -106,6 +106,8 @@ forgebot duplicate/replay guard: 처리 조건은 `agent:ready` 가 *있다*가 
 
 위치: `~/repos/gh/forge-config/bin/forge`. **profile 시스템**으로 oracle/work 두 인스턴스를 한 손에서 운영한다.
 
+> **sibling 바이너리** `bin/git-credential-forge` — REST 가 아니라 *git push 인증* 레이어. 같은 `~/.env.local` profile 토큰(`ORACLE/WORK_FORGE_TOKEN`)을 git native credential 기계로 잇는 generic credential helper (host+path-prefix 자동판별, url-scope 없음). forge 서버는 oracle/work 호스트에 있어도 `git push` 는 어느 기기(클라이언트 + forge 호스트 자신)에서나 askpass/토큰-in-URL 없이 동작한다. env.local 은 기기 간 동기화(모두 `ORACLE_*`+`WORK_*`)라 helper 가 어디서나 동일. 설치는 기기마다 두 줄 — `git config --global credential.helper ~/repos/gh/forge-config/bin/git-credential-forge` + `git config --global credential.useHttpPath true`(path 격리, 특히 work forge 가 `/forge` path prefix 아래 있는 공유 host). **설치 자리는 `~/.gitconfig` (machine-local, writable) — nixos-config 아님 (결정 2026-06-02, GLG).** home-manager 가 잡은 nix 심링크 `~/.config/git/config` 는 안 건드리고 git 이 둘 다 머지한다. nixos rebuild 불필요. 롤아웃 매트릭스/현황은 NEXT.md §8. work host 는 identity term 이지만 helper 가 `WORK_FORGE_URL` 에서 런타임 추출하므로 어디에도 박히지 않는다. 규약은 SKILL.md §"git push 인증".
+
 ```bash
 # 현 profile 의 봇 namespace 아래 실재 repo 목록 (discovery primitive)
 bin/forge repos [OWNER]
