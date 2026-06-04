@@ -127,8 +127,11 @@ build_default_footer() {
 require_env() {
   resolve_profile
   apply_profile
-  : "${FORGE_URL:?FORGE_URL is required (profile=$FORGE_PROFILE — set ${FORGE_PROFILE}_FORGE_URL in ~/.env.local)}"
-  : "${FORGE_TOKEN:?FORGE_TOKEN is required (profile=$FORGE_PROFILE)}"
+  # Env var prefix is UPPERCASE (WORK_/ORACLE_), but $FORGE_PROFILE is lowercase.
+  # Uppercase it so the hint names the variable that actually exists.
+  profile_upper=$(echo "$FORGE_PROFILE" | tr '[:lower:]' '[:upper:]')
+  : "${FORGE_URL:?FORGE_URL is required (profile=$FORGE_PROFILE — set ${profile_upper}_FORGE_URL in ~/.env.local)}"
+  : "${FORGE_TOKEN:?FORGE_TOKEN is required (profile=$FORGE_PROFILE — set ${profile_upper}_FORGE_TOKEN in ~/.env.local)}"
   : "${FORGE_USER:=glg-bot}"
   # Always rebuild footer from FORGE_MODEL + ~/.current-device.
   # Any inherited FORGE_BOT_FOOTER from parent shells is intentionally ignored —
