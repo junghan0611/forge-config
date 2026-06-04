@@ -12,6 +12,8 @@ Usage:
   forge [--forge oracle|work] label-add ISSUE LABEL
   forge [--forge oracle|work] label-remove ISSUE LABEL
   forge [--forge oracle|work] label-set ISSUE LABEL
+  forge [--forge oracle|work] close ISSUE
+  forge [--forge oracle|work] reopen ISSUE
   forge [--forge oracle|work] issue-create [REPO] TITLE BODY               [OPTIONS]
   forge [--forge oracle|work] issue-create [REPO] TITLE --body-file PATH   [OPTIONS]
   forge [--forge oracle|work] issue-create [REPO] TITLE --body-file -      [OPTIONS]   # stdin
@@ -288,6 +290,30 @@ cmd_label_set() {
   ')
   payload=$(jq -n --argjson labels "$label_ids_json" '{labels:$labels}')
   api PUT "/repos/$repo/issues/$num/labels" "$payload" | jq -r '"labels=[\([.[].name] | join(","))]"'
+}
+
+# close / reopen flip Forgejo's issue state. This is the open/closed axis,
+# orthogonal to the lifecycle labels: agent:done means triage completed, while
+# closed means the issue is resolved/withdrawn and tracking stops. Keep these
+# verbs thin — record the reason via `comment` first, then close.
+cmd_close() {
+  [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+  issue="$1"
+  repo="$(repo_path "$(issue_repo "$issue")")"
+  num="$(issue_number "$issue")"
+  log_context "$repo"
+  api PATCH "/repos/$repo/issues/$num" '{"state":"closed"}' \
+    | jq -r '"#\(.number) [\(.state)] \(.title)"'
+}
+
+cmd_reopen() {
+  [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+  issue="$1"
+  repo="$(repo_path "$(issue_repo "$issue")")"
+  num="$(issue_number "$issue")"
+  log_context "$repo"
+  api PATCH "/repos/$repo/issues/$num" '{"state":"open"}' \
+    | jq -r '"#\(.number) [\(.state)] \(.title)"'
 }
 
 cmd_issue_create() {
@@ -618,6 +644,8 @@ case "$cmd" in
   label-add)    require_env; shift; cmd_label_add "$@" ;;
   label-remove) require_env; shift; cmd_label_remove "$@" ;;
   label-set)    require_env; shift; cmd_label_set "$@" ;;
+  close)        require_env; shift; cmd_close "$@" ;;
+  reopen)       require_env; shift; cmd_reopen "$@" ;;
   issue-create) require_env; shift; cmd_issue_create "$@" ;;
   *) echo "unknown command: $cmd" >&2; usage >&2; exit 2 ;;
 esac

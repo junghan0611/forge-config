@@ -94,6 +94,8 @@ bin/forge comment ISSUE --body-file /tmp/review.md
 bin/forge label-add ISSUE LABEL
 bin/forge label-remove ISSUE LABEL
 bin/forge label-set ISSUE STATUS_LABEL
+bin/forge close ISSUE
+bin/forge reopen ISSUE
 bin/forge issue-create [REPO] TITLE BODY [OPTIONS]
 bin/forge issue-create [REPO] TITLE --body-file PATH [OPTIONS]
 bin/forge auto-fix-template ISSUE
@@ -102,6 +104,13 @@ bin/forge doctor-labels [REPO]
 
 Use `comment --body-file` for long reviews, test output, or handoff notes.
 Use `label-set` for lifecycle status so status labels do not accumulate. For replay safety, forgebot should triage only when current lifecycle labels are exactly `{agent:ready}`; webhook payload is only a wake signal. Use `doctor-labels` before putting a repo on the auto-fix lane; it fails if required lifecycle/signal labels are missing.
+
+Use `close` / `reopen` for Forgejo's open/closed state. This axis is **orthogonal to the lifecycle labels**: `agent:done` means first-review triage completed, while `closed` means the issue is resolved or withdrawn and tracking stops. Record the reason with `comment` first, then `close` — the verbs themselves stay thin (a single PATCH of issue state).
+
+The verb is **unguarded** (same surface as `comment` / `label-set`); who may close is a **convention, not a code gate** — the same grain as the auto-fix lane, where validation lives in the loop, not a guard. Forge is an internal work surface (`glg-bot/*`, not operator-visible), so close carries little external-exposure cost, unlike a push to an operator-visible `main`. The convention splits by *why* you close:
+
+- **Resolution close** — fixed in a shipped tag/commit and confirmed non-reproducing: the **owner agent may close autonomously** (reason comment first, then `close`).
+- **Judgment close** — won't-fix, duplicate, invalid-by-design, deprioritized/withdrawn: this is a value call, so route through GLG or `human:needs-review`, not a solo owner decision.
 
 ## Label Protocol v2
 
@@ -173,7 +182,8 @@ See [ROADMAP.md](./ROADMAP.md).
 ## Status
 
 ✅ Connector v2 is active: multi-profile Forgejo CLI, mutating-command
-observability, `comment --body-file`, `label-remove`, and status-safe `label-set`.
+observability, `comment --body-file`, `label-remove`, status-safe `label-set`,
+and `close` / `reopen` for the open/closed state axis.
 
 Next steps live in [NEXT.md](./NEXT.md). Owner instructions live in
 [AGENTS.md](./AGENTS.md).

@@ -2,6 +2,42 @@
 
 > Volatile next actions only. Durable operating model lives in [README.md](./README.md), [ROADMAP.md](./ROADMAP.md), and [AGENTS.md](./AGENTS.md).
 
+## Current stance — 2026-06-04
+
+`bin/forge` had no open/closed verb. A voscli-owner session hit the wall: #20/#22
+were verifiably fixed in shipped versions and ready to close, but the only
+sanctioned surface was comment/label — closing forced the web UI, so it was
+punted to GLG. The REST layer always supported it (`PATCH /repos/{o}/{r}/issues/{n}`
+`{"state":"closed"}`; the `api` helper is method-agnostic), only the `bin/forge`
+surface was missing.
+
+Added thin `close` / `reopen` verbs (`bin/forge`), documented the axis in
+README + skill SKILL.md, live round-trip smoke on oracle `sandbox#14`
+(open→closed→open→closed). Working-tree change, **not committed** — GLG commits.
+
+Design note recorded in README/SKILL: open/closed is **orthogonal** to lifecycle
+labels — `agent:done` = triage done, `closed` = resolved/withdrawn, tracking
+stops. Verbs stay thin (single state PATCH); reason goes in a `comment` first.
+
+Close policy — **resolved** (proposed by the voscli owner, both owners agree;
+encoded in README + skill SKILL.md; GLG's go finalizes adoption). Keep the verb
+**unguarded**; split by intent as a **convention, not a code gate** (same grain
+as the auto-fix lane — validation by loop, not guard):
+
+- **resolution close** — fixed in a shipped tag/commit + confirmed
+  non-reproducing → owner agent closes autonomously, reason `comment` first.
+- **judgment close** — won't-fix / duplicate / invalid-by-design / deprioritized
+  → route via GLG or `human:needs-review`; not a solo owner call.
+
+Rationale: forge is an internal surface (`glg-bot/*`, operator-invisible) so
+close has low external-exposure cost; human-only would make GLG a bottleneck
+(16 open voscli issues, several already fixed but unclosed is the evidence).
+
+Pending GLG go: the voscli owner closes #20 (v2026.6.1 AND intersection) and
+#22 (v0.7.2 cwd footgun, vocbot-verified) as resolution closes (comment +
+close). #19/#21/#18 stay open (unresolved body bugs); forge-infra label tangle
+on #4/#5/#7/#9 is the separate `label-set` cleanup track.
+
 ## Current stance — 2026-06-02
 
 forge becomes *usable* only if pushing code to a forge remote is a sanctioned
