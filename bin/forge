@@ -56,6 +56,10 @@ Legacy env value fallback (URL/TOKEN only):
 Profile-prefixed env (~/.env.local SSOT):
   ORACLE_FORGE_URL,   ORACLE_FORGE_TOKEN,   ORACLE_FORGE_USER,   [ORACLE_FORGE_REPO]
   WORK_FORGE_URL,  WORK_FORGE_TOKEN,  WORK_FORGE_USER,  [WORK_FORGE_REPO]
+  ~/.env.local is auto-sourced when the profile's token is absent, so no manual
+  `source` is needed in harnesses that don't inject env (Claude Code, plain shells).
+  pi injects env already; sourcing is skipped when the token is present.
+  Override the path with FORGE_ENV_FILE.
 
 Defaults:
   FORGE_REPO          oracle: glg-bot/sandbox.  work: must be set or passed.
@@ -79,6 +83,26 @@ resolve_profile() {
       echo "       Pass --forge oracle|work or set FORGE_PROFILE." >&2
       exit 2 ;;
   esac
+}
+
+# Self-source the ~/.env.local SSOT when the resolved profile's token is not
+# already in the environment. pi injects env automatically; harnesses that do
+# not (Claude Code, plain shells, git's own env) would otherwise need a manual
+# `source ~/.env.local` before every call. Conditional on the token being
+# absent, so pi-injected env or an explicit override is never clobbered.
+# Read in-process (no `set -a` needed) — apply_profile reads the prefixed vars
+# from this same shell, matching bin/git-credential-forge's pattern.
+load_env_local() {
+  case "$FORGE_PROFILE" in
+    oracle) _tok="${ORACLE_FORGE_TOKEN:-${FORGE_TOKEN:-}}" ;;
+    work)   _tok="${WORK_FORGE_TOKEN:-${FORGE_TOKEN:-}}" ;;
+    *)      _tok="" ;;
+  esac
+  [ -n "$_tok" ] && return 0
+  _env="${FORGE_ENV_FILE:-$HOME/.env.local}"
+  [ -r "$_env" ] || return 0
+  # shellcheck disable=SC1090
+  . "$_env" 2>/dev/null || true
 }
 
 apply_profile() {
@@ -126,6 +150,7 @@ build_default_footer() {
 
 require_env() {
   resolve_profile
+  load_env_local
   apply_profile
   # Env var prefix is UPPERCASE (WORK_/ORACLE_), but $FORGE_PROFILE is lowercase.
   # Uppercase it so the hint names the variable that actually exists.
