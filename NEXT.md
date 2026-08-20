@@ -2,6 +2,20 @@
 
 > Volatile next actions only. Durable operating model lives in [README.md](./README.md), [ROADMAP.md](./ROADMAP.md), and [AGENTS.md](./AGENTS.md).
 
+## Current stance — 2026-08-20
+
+The workshop does not have to live only at home. Company GitHub can stand up
+the same identity with Copilot custom agents. Trust is identity plus
+cooperation, not host. Generic Copilot without a persona is still out of
+scope. Forgejo ledger stays; do not machine-copy GitHub issues into Forgejo.
+
+Docs rewritten for both forks (README / AGENTS / ROADMAP). This repo's
+GitHub persona is `.github/agents/forge-config.agent.md` — visible in Assign
+only after default-branch merge. Other GitHub repos (entwurf, company) own
+their own `.github/agents/` files; forge-config only guides the shape.
+
+Next caller may be pi, not Copilot. Do not drop the dual-workshop core.
+
 ## Current stance — 2026-06-04
 
 `bin/forge` had no open/closed verb. A voscli-owner session hit the wall: #20/#22
@@ -70,6 +84,12 @@ Remember:
 - OpenClaw owns transport/runtime/auth/model/gateway/lifecycle wiring up to “forgebot wakes”; forge-config owns lifecycle protocol, `auto-fix` semantics, sweeper semantics, validation loops, and follow-up issue rules.
 
 ## Next actions
+
+### 0. Company GitHub workshop — other repos
+
+This repo now has `.github/agents/forge-config.agent.md`. After GLG merge/push,
+it appears in Assign. entwurf and company GitHub repos still need their own
+personas; forge-config only guides the shape. Do not invent those files here.
 
 ### 1. Auto-fix v1 runner policy — freeze OpenClaw, move semantics here
 

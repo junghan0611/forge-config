@@ -1,21 +1,25 @@
 # Roadmap
 
-forge-config is the connector layer for GLG agents working through Forgejo.
+forge-config is the connector layer for GLG agent workshops.
 It is not a dashboard product, and it is not an automatic coding factory.
 It exists so requests discovered in human-agent conversations can become durable,
-reviewable, sortable work items.
+reviewable, sortable work items — at home on Forgejo, or inside the company on
+GitHub Copilot.
 
 ## North Star
 
 Give each operational domain an agent that people can talk to.
-When a request, bug, missing feature, or repeated pain point appears in that
-conversation, it should be captured as a Forgejo issue with enough context for
-another agent — and later GLG — to reason about it.
+When a request, bug, missing feature, or repeated pain point appears, it should
+be captured as a work item with enough context for another agent — and later
+GLG — to reason about it.
 
-The goal is not to make every team use a dashboard. Most people do not want one,
-and many can build their own views if needed. The goal is to let them talk to the
-agent responsible for their domain, while the agent network preserves the work
-trail in Forgejo.
+The workshop does not have to live only at home. A company GitHub org can stand
+up the same identity with Copilot custom agents. Trust is identity plus
+cooperation, not host.
+
+The goal is not to make every team use a dashboard. The goal is to let them talk
+to the agent responsible for their domain, while the agent network preserves the
+work trail on whichever ledger that workshop uses.
 
 ## Intended Flow
 
@@ -41,7 +45,9 @@ Human / domain owner talks to a domain bot
 - Treat `agent:done` in the forgebot loop as implementation completed.
 - Treat `auto-fix` as “solved” without a validation trail.
 - Let forgebot implement every issue immediately.
-- Treat GitHub Copilot or generic hosted coding agents as GLG owner agents.
+- Treat a **generic** GitHub Copilot cloud agent (no custom persona, no AGENTS.md) as a 힣 owner agent.
+- Treat Copilot as a replacement for Forgejo or for GLG merge decisions.
+- Require every workshop to live only on home Forgejo.
 - Optimize for maximum parallel coding before the triage loop is trustworthy.
 
 ## Roles
@@ -52,7 +58,8 @@ Human / domain owner talks to a domain bot
 | **forgebot** | Dispatcher / recorder: wakes on labels, runs the live hook sequence, asks owner agents for read-only first review when needed, writes results back. For explicitly bounded/minor lanes it may coordinate an `auto-fix` validation loop, but the product semantics live in forge-config, not OpenClaw. |
 | **Owner agent** | Understands one repo/domain, returns reality check / owner repo / risk / scope / implementation-needed? / priority / comment summary, and later helps with focused implementation. |
 | **GLG** | Reviews the sorted backlog, chooses implementation batches, and makes final commit/merge decisions. |
-| **forge-config** | Maintains the connector: CLI, label protocol, footer convention, and public operating docs. |
+| **forge-config** | Maintains the connector: CLI, label protocol, footer, GitHub Copilot custom-agent guidance, and public operating docs. |
+| **Copilot custom agent** | Selectable GitHub persona (`.github/agents/*.agent.md` on default branch). Host, not owner of this protocol. |
 
 ## Current Phase — Connector First
 
@@ -156,6 +163,14 @@ sweep and second-pass validation rather than fixing one visible instance.
 The repo-owned surface is `bin/forge auto-fix-template ISSUE` plus this operating model. The template marker records `schema`, `report_id`, `session_key`, `issue_updated_at`, lifecycle labels, sorted labels, provider/model, and forge-config commit so OpenClaw session memory and webhook replay never outrank current Forgejo state. It intentionally borrows ClawSweeper's safety grammar — conservative default, review-before-mutation, durable report, marker-backed comment, snapshot drift guard, and deterministic mutation gate — without copying its Plan / Review / Apply product pipeline or GitHub-scale machinery. GLG auto-fix is 회독-centered validation.
 
 ## Near-Term Roadmap
+
+### 0. GitHub company workshop (2026-08-20)
+
+- Keep one identity across home Forgejo and company GitHub Copilot.
+- Custom agent files live in each GitHub repo's `.github/agents/*.agent.md` and must merge to default branch.
+- This repo ships `.github/agents/forge-config.agent.md` as the local persona.
+- Guide usage (Assign, Agents tab, CLI `/agent`); do not treat generic Copilot as owner.
+- Do not machine-copy GitHub issues onto Forgejo.
 
 ### 1. Issue Capture
 

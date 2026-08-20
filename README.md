@@ -1,33 +1,45 @@
 # forge-config
 
-Shared Forgejo connector for GLG agents.
+Shared connector for GLG agent workshops.
 
-forge-config is the public operational policy and CLI layer that lets GLG agents
-turn conversations into durable, reviewable Forgejo issues. It is the code-surface
-sibling of **botment**: botment lets agents leave traces on garden comments;
-forge-config lets agents leave traces on code work items.
+The workshop does not have to live only at home. The same identity can stand
+up a workshop **inside the company** (GitHub Copilot) and **at home**
+(self-hosted Forgejo). Trust is **identity plus cooperation**, not which host
+runs the model.
 
-## Why Forge Exists
+forge-config is the public operating policy and CLI layer for that identity.
+It is the code-surface sibling of **botment**: botment leaves traces on garden
+comments; forge-config leaves traces on code work items, wherever the ledger
+lives.
 
-GLG is now giving agents to domain owners.
+## Why the workshop exists
 
-A domain owner should not need a dashboard just to ask for help. Operational
-teams, support teams, and internal users can talk to the responsible bot directly
-(for example `vocbot`). Those conversations are recorded on the server as JSONL.
-When a requirement, bug, missing feature, or repeated pain point appears, it
-should be captured as a Forgejo issue.
+GLG is giving agents to domain owners. A domain owner should not need a
+dashboard just to ask for help. They talk to the responsible bot (for example
+`vocbot`). When a requirement, bug, missing feature, or repeated pain point
+appears, it should become a durable, reviewable work item.
 
-Forgejo becomes the shared work ledger:
+The original question was: *can we trust GitHub Copilot agents that are not
+힣's agents?* Forgejo was the probe — own host, own bot user, own labels, own
+footer. The answer now is: if identity is thick enough and agents cooperate,
+the host is secondary.
 
-- requests are captured from human-agent conversations;
-- issues preserve enough context for review;
-- labels wake the coordination bot;
-- owner agents classify and review the work;
-- GLG later sorts the backlog and runs focused implementation batches.
+Generic hosted agents **without** that identity remain out of scope. The point
+is not “AI writes code somewhere.” The point is a GLG-owned agent network with
+durable context, explicit ownership, and reviewable traces — on Forgejo **or**
+on GitHub.
 
-This is why GitHub Copilot or generic hosted coding agents are not the target.
-The point is not “AI writes code somewhere.” The point is a GLG-owned agent
-network with durable context, explicit ownership, and reviewable traces.
+## Two workshops, one identity
+
+| Workshop | Host | Ledger | Agent surface |
+|---|---|---|---|
+| Home | Forgejo `oracle` | Forgejo issues | `bin/forge`, forgebot, owner agents, footer |
+| Company | GitHub | GitHub issues / PRs | Copilot custom agents in `.github/agents/*.agent.md` |
+| Company mirror (optional) | Forgejo `work` | work Forgejo | same Forgejo protocol as home |
+
+`AGENTS.md` is the shared identity. `.github/agents/*.agent.md` is the
+selectable Copilot persona. `bin/forge` is the Forgejo hand. Do not collapse
+these three into one file.
 
 ## What this is NOT
 
@@ -35,16 +47,42 @@ network with durable context, explicit ownership, and reviewable traces.
 - ❌ A factory-style automatic coding system
 - ❌ A replacement for GLG deciding what to implement
 - ❌ An infrastructure repo — Docker/Caddy/host config lives elsewhere
-- ❌ Just a CLI binary — `bin/forge` is the hand, not the whole body
+- ❌ Just a CLI binary — `bin/forge` is the Forgejo hand, not the whole body
+- ❌ “Copilot replaces 힣 agents” — Copilot is a host; identity still lives here
 
 ## What this IS
 
-- ✅ A connector between conversations, Forgejo issues, and owner agents
-- ✅ The SSOT for label policy, footer identity, and bot behavior on Forgejo
-- ✅ The CLI surface used by agents to read/write the shared issue ledger
-- ✅ A public record of the evolving operating model for GLG agent ownership
+- ✅ A connector between conversations, work ledgers, and owner agents
+- ✅ The SSOT for identity: ownership, traces, label protocol, footer, review loops
+- ✅ The Forgejo CLI surface (`bin/forge`) and the GitHub Copilot guidance surface
+- ✅ A public record of the operating model so a workshop can be stood up at home or at work
 
-## Operating Loop
+## GitHub Copilot — company workshop
+
+GitHub Copilot Max credits (chat, CLI, cloud agent) are one pool. Use them on
+a custom agent that carries this repo's identity, not on the generic default.
+
+How to set a custom agent:
+
+1. Add `.github/agents/<name>.agent.md` on the GitHub repo (this repo's
+   profile is [`.github/agents/forge-config.agent.md`](./.github/agents/forge-config.agent.md)).
+2. YAML frontmatter needs at least `description`. Optional:
+   `name`, `tools`, `model`, `disable-model-invocation: true` (manual pick only).
+3. Markdown below the frontmatter is the prompt (max 30k characters). Point it
+   at `AGENTS.md`; do not fork a second philosophy.
+4. **Merge to the default branch.** Until then it will not appear in the
+   Assign dropdown or [github.com/copilot/agents](https://github.com/copilot/agents).
+5. Use it from: issue Assign → Copilot → custom agent; the Agents tab;
+   Copilot CLI `/agent`.
+
+`AGENTS.md` is instructions every agent should read. `.agent.md` is the
+persona you pick instead of the default cloud agent. Cloud runtime extras
+(`copilot-setup-steps.yml`, repo MCP) are optional and per-repo.
+
+Docs: [custom agents](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/create-custom-agents),
+[configuration reference](https://docs.github.com/en/copilot/reference/custom-agents-configuration).
+
+## Operating Loop (home / Forgejo)
 
 ```text
 Human / domain owner talks to a domain bot
@@ -140,7 +178,8 @@ should be added only after operational need is clear.
 
 ## Agent Identity
 
-Forgejo uses one bot user, `glg-bot`. Each comment ends with a footer:
+Identity is the same on both hosts. On Forgejo, one bot user `glg-bot` writes
+comments with a footer:
 
 ```text
 — glg-bot [<model> / <host>]
@@ -151,20 +190,27 @@ Examples:
 - `— glg-bot [gpt-5.4 / work-host]`
 - `— glg-bot [claude-opus-4-7 / thinkpad]`
 - `— glg-bot [pi-codex / nuc]`
+- `— glg-bot [copilot-cli / thinkpad]`
 
-This keeps token and permission management small while preserving which agent and
-machine left the trace.
+This keeps token and permission management small while preserving which agent
+and machine left the trace.
+
+On GitHub, Copilot uses the GitHub identity that opened the session or PR.
+The custom agent file plus `AGENTS.md` are what make that session a 힣
+workshop, not a generic coding agent. Prefer the same footer in GitHub
+comments when a 힣 agent is writing through Copilot CLI.
 
 ## Boundary of Responsibility
 
 | Layer | Location | Responsibility |
 |---|---|---|
 | Infrastructure | `nixos-config/docker/forge/` | Forgejo, Caddy, host deployment |
-| Connector / policy | this repo | CLI, label protocol, footer convention, bot behavior |
+| Connector / policy | this repo | CLI, label protocol, footer, GitHub Copilot guidance, bot behavior |
+| GitHub custom agent | `.github/agents/*.agent.md` | Selectable Copilot persona; must be on default branch |
 | Agent skill surface | `agent-config/skills/forge/` | Thin pointer consumed by agent harnesses |
 | OpenClaw | `openclaw` | Chat/session/webhook transport, auth/model profiles, backend/gateway stability, forgebot runtime wiring |
-| forgebot | OpenClaw workspace | Dispatcher / recorder: state → `label-set agent:running` → scenario decision → read-only owner review or bounded `auto-fix` validation lane when explicitly supported → `comment --body-file` → final `label-set` |
-| Owner repos | `voscli`, `nixos-config`, `openclaw`, ... | Domain-specific first review now; focused implementation later when GLG calls the owner agent |
+| forgebot | OpenClaw workspace | Dispatcher / recorder on Forgejo: state → `label-set agent:running` → scenario decision → read-only owner review or bounded `auto-fix` → `comment --body-file` → final `label-set` |
+| Owner repos | `voscli`, `nixos-config`, `openclaw`, `entwurf`, ... | Domain first review; GitHub Copilot custom agents live in *that* repo's `.github/agents/` |
 
 OpenClaw does not need to remember the entire philosophy. It should provide the
 transport and runtime connection. forge-config records the public operating model.
@@ -181,9 +227,12 @@ See [ROADMAP.md](./ROADMAP.md).
 
 ## Status
 
-✅ Connector v2 is active: multi-profile Forgejo CLI, mutating-command
+✅ Connector v2 is active on Forgejo: multi-profile CLI, mutating-command
 observability, `comment --body-file`, `label-remove`, status-safe `label-set`,
-and `close` / `reopen` for the open/closed state axis.
+and `close` / `reopen`.
+
+✅ 2026-08-20: GitHub Copilot is a second workshop host, not a foreign agent.
+Identity stays here. Custom agent profile lives in `.github/agents/`.
 
 Next steps live in [NEXT.md](./NEXT.md). Owner instructions live in
 [AGENTS.md](./AGENTS.md).
