@@ -5,6 +5,29 @@
 > (Forgejo) **and** inside the company (GitHub Copilot). Host is secondary.
 > Identity plus cooperation is the product.
 
+## 담당자 문서 — denote id `20260527T073823`
+
+이 리포의 담당자 문서(botlog)는 **denote id 로 기억한다**. 제목이 아니라 id 다.
+
+| 항목 | 값 |
+|---|---|
+| id | `20260527T073823` |
+| 현재 제목 | §forge-config: @봇공방 에이전트의 공유 코드 작업면 (Forgejo) |
+| 읽는 자리 | `~/org/botlog/` **org 원본** (`denotecli read 20260527T073823 --outline`) |
+| 쓰는 손 | `botlog` 스킬 — `agent-denote-add-history` / `agent-denote-add-heading` |
+| 고쳤다는 도장 | `agent-denote-set-front-matter` 로 `:hugo_lastmod:` |
+
+규칙:
+
+- **id 로만 찾아라.** 제목·슬러그·태그·파일명은 하루에도 움직이지만 `#+identifier:` 는 안 움직인다.
+  개명 한 번에 나머지가 전부 바뀐 실측 사례가 있다 (2026-09-04, sorge 측정).
+- **`notes/content/` 의 내보내진 md 를 판정 근거로 쓰지 마라.** export 는 한 주기 늦다.
+  갓 개명된 노트를 "없다"고 오판하는 표면이 정확히 거기다.
+- `§` 를 언급만 하는 주제 노트는 담당자 문서가 아니다. 위 id 하나가 정본.
+- `:hugo_lastmod:` 는 퍼블리시 필드가 아니라 **"이 문서를 정말 고쳤다"는 손도장**이다
+  (GLG 판정 2026-09-04). 히스토리 한 줄은 로그이지 수정이 아니므로 기준선을 올리지 않는다.
+  sorge 가 이 리포의 빚을 세는 유일한 기준선이 이 도장이다.
+
 ## Wake-up Brief — Current Purpose
 
 forge-config is **not** a dashboard product and **not** an automatic coding factory.
@@ -329,19 +352,64 @@ Forgejo 토큰 발급 시 검증된 필수 scope: `write:user`, `write:repositor
 2. 발견되면 GLG 보고 → revoke + 재발급
 3. 재발 방지 (`.gitignore` 강화)
 
-## agent-config 와의 관계
+## agent-config 와의 관계 — 실측 (thinkpad, 2026-09-04)
+
+**말과 실물이 갈렸던 자리다.** 위 문단에는 한때 "forge-config 가 SKILL.md 의 SSOT,
+agent-config 는 thin pointer" 라는 그림이 `(앞으로 추가)` 딱지와 함께 그려져 있었다.
+그 모양은 서지 않았고, 앞으로도 그 모양이 아니다. 실측한 현재 상태는 이렇다.
 
 ```
 forge-config (this repo)
-  └── .claude/skills/forge/SKILL.md   ← SSOT (앞으로 추가)
-        ↑
-agent-config/skills/forge/SKILL.md    ← thin pointer (앞으로 추가)
+  └── bin/forge, bin/git-credential-forge    ← 동작의 SSOT (실물)
+        ↑ 절대경로로 호출
+agent-config/skills/forge/SKILL.md           ← 실물 361줄, agent-config 에 git-tracked
+  = ~/.claude/skills/forge/SKILL.md          ← ~/.claude/skills 자체가 agent-config/skills 심링크
+
+forge-config/.claude/                        ← 없음
 ```
 
-agent skill 의 SSOT 는 여기. agent-config 는 모든 backend (pi / Claude Code / Codex / Gemini CLI) 가 forge 호출을 할 수 있게 표면을 노출.
+측정 방법: `ls -ld ~/.claude/skills` (심링크), `wc -l`(361), `stat -c %i`(동일 inode),
+`git -C ~/repos/gh/agent-config ls-files skills/forge/`(tracked), `ls forge-config/.claude`(없음).
 
-> 본 repo 의 `.claude/skills/forge/` 가 만들어지기 전까지는 agent-config 도 미정.
-> Spike 0 (봇멘트 fork) 진행 시 같이 잡는다.
+### "thin pointer" 는 두 뜻으로 갈렸다
+
+| 뜻 | 내용 | 실현 여부 |
+|---|---|---|
+| 파일 수준 | SKILL.md **본문**이 forge-config 에 살고 agent-config 는 stub | ❌ 선 적 없음 |
+| CLI 수준 | SKILL.md 본문은 agent-config 에 살되 **동작의 정답은 `bin/forge`** 라고 가리킴 | ✅ 이게 실물 |
+
+실현된 것은 CLI 수준이다 (agent-config `36fb001`, 2026-05-27,
+"replace stub fork with thin pointer to forge-config CLI"). SKILL.md `## SSOT` 단락이
+`~/repos/gh/forge-config/bin/forge` 를 정답으로 명시한다. 낡은 그림은 계획을
+현황도처럼 그려둔 것이었다 — 용어가 두 집에서 다른 뜻이면 어느 쪽이 참인지 아무도 모른다.
+
+### 열린 판단 — 실물을 이 집으로 옮길 것인가
+
+sorge 는 반대 예를 택했다: 순회 스킬 실물이 `~/repos/gh/sorge/.claude/skills/sorge/` 에 살고
+`agent-config/skills/sorge` 가 상대 심링크로 가리키기만 한다. **agent-config 에서 이미 선
+패턴이다** — 45개 스킬 중 3개(`voscli`, `incidentcli`, `sorge`)가 sibling 리포로의 심링크이고,
+셋 다 "스킬이 그 리포의 코드/바이너리에 의존한다"는 같은 모양이다. `forge` 도 정확히 그 모양이다.
+
+옮겨야 한다는 실측 근거 — **SKILL.md 와 `bin/forge` 는 늘 같은 날 함께 움직였다**:
+
+| 날짜 | forge-config `bin/forge` | agent-config `skills/forge/SKILL.md` |
+|---|---|---|
+| 2026-05-28 | `2462c9a` `06cc803` `eadf442` | `f0f02d8` `957de68` |
+| 2026-05-29 | `a0e56be` | `db357c6` `c323776` `14e6ee4` `29c4c7e` |
+| 2026-06-01 | `85c42a9` `d6b2619` `3988102` | `767c67b` |
+| 2026-06-02 | `ffeacaa` | `13f9d32` |
+| 2026-06-04 | `199375a` `0329df5` `e74b7fa` | `8ccdecb` `ee42cd2` |
+
+한 변경마다 두 리포에 두 커밋. 같은 축에 살면 한 커밋이다.
+(참고: agent-config `73c3be2` "merge co-owned settings without symlinks" 는 **settings 조각**
+얘기이지 스킬 얘기가 아니다 — 반례로 오독하지 말 것.)
+
+**결정은 GLG 자리다.** 옮기려면 agent-config 쪽 파일 삭제 + 심링크 생성이 같은 손에서
+일어나야 하는데 agent-config 는 남의 집이다. 이 담당자는 발견하고 이름 붙여 넘긴다.
+그 전까지 SKILL.md 를 이 리포에 **복사하지 마라** — 실물이 둘이 되는 게 갈린 말보다 나쁘다.
+
+agent-config 는 모든 backend (pi / Claude Code / Codex / Gemini CLI) 가 forge 호출을 할 수
+있게 표면을 노출한다. 그 역할은 실물이 어디 살든 바뀌지 않는다.
 
 ## 진화 원칙
 
@@ -366,6 +434,6 @@ agent skill 의 SSOT 는 여기. agent-config 는 모든 backend (pi / Claude Co
 
 - [README.md](./README.md) — 공개 정체성
 - [NEXT.md](./NEXT.md) — 지금 다음 한 걸음
-- 설계 노트: [포지 레이어 20260527T073823](https://notes.junghanacs.com/botlog/20260527T073823)
+- **담당자 문서 (정본, id 로 기억)**: `20260527T073823` — 원본은 `~/org/botlog/`, 공개면은 [notes.junghanacs.com/botlog/20260527T073823](https://notes.junghanacs.com/botlog/20260527T073823) (export 한 주기 늦음). 위 §담당자 문서 참고.
 - 부모 패턴: [봇멘트 20260328T112722](https://notes.junghanacs.com/botlog/20260328T112722)
 - 7-spike 로드맵: [agent-config #13](https://github.com/junghan0611/agent-config/issues/13)
