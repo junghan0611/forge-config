@@ -12,7 +12,7 @@
 | 항목 | 값 |
 |---|---|
 | id | `20260527T073823` |
-| 현재 제목 | §forge-config: @봇공방 에이전트의 공유 코드 작업면 (Forgejo) |
+| 현재 제목 (편의용, 움직인다) | §forge-config #담당자 @봇공방 에이전트의 공유 코드 작업면 — 집(Forgejo)과 회사(GitHub Copilot) |
 | 읽는 자리 | `~/org/botlog/` **org 원본** (`denotecli read 20260527T073823 --outline`) |
 | 쓰는 손 | `botlog` 스킬 — `agent-denote-add-history` / `agent-denote-add-heading` |
 | 고쳤다는 도장 | `agent-denote-set-front-matter` 로 `:hugo_lastmod:` |
@@ -21,6 +21,8 @@
 
 - **id 로만 찾아라.** 제목·슬러그·태그·파일명은 하루에도 움직이지만 `#+identifier:` 는 안 움직인다.
   개명 한 번에 나머지가 전부 바뀐 실측 사례가 있다 (2026-09-04, sorge 측정).
+  이 표의 「현재 제목」도 그날 안에 한 번 갈렸다 — GLG 지시로 제목에 `#담당자` 를 박으면서
+  파일명·슬러그가 함께 움직였고 id 만 그대로였다. **표와 파일이 어긋나면 파일이 이긴다.**
 - **`notes/content/` 의 내보내진 md 를 판정 근거로 쓰지 마라.** export 는 한 주기 늦다.
   갓 개명된 노트를 "없다"고 오판하는 표면이 정확히 거기다.
 - `§` 를 언급만 하는 주제 노트는 담당자 문서가 아니다. 위 id 하나가 정본.
