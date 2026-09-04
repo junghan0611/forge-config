@@ -11,17 +11,22 @@ sorge 순회가 호출했다. 갱신 빚은 5커밋으로 작았고, 이 사이�
 `#+identifier:` 는 안 움직인다. 읽는 자리는 `~/org/botlog/` org 원본이고
 `notes/content/` 의 export md 는 한 주기 늦으므로 판정 근거로 쓰지 않는다.
 
-**2. GLG 결정 대기 — `forge` 스킬 실물을 이 리포로 옮길 것인가.**
-실측(thinkpad, 2026-09-04): SKILL.md 361줄 실물은 `agent-config/skills/forge/` 에
-git-tracked 이고, forge-config 에 `.claude/` 는 없다. "thin pointer" 가 두 뜻으로
-갈려 있었을 뿐 배치 자체는 의도적이었다 (실현된 것은 CLI 수준 — agent-config `36fb001`).
-그림은 `AGENTS.md` 에서 실측 현황으로 교체했다.
+**2. `forge` 스킬 실물이 이 리포로 왔다 — 이관 완료.**
+GLG 판정으로 진행, agent-config 담당자와 자문해 두 커밋으로 옮겼다.
+`.claude/skills/forge/SKILL.md` (361줄, 내용 무변경) ← `dfe25c8` 푸시됨.
+agent-config 는 `skills/forge → ../../forge-config/.claude/skills/forge` 상대 심링크
+← `3b9f72e` **로컬 커밋, 푸시는 GLG 자리**. 도달 6/6 실측 (claude / pi /
+claude-plugin / codex / copilot / kiro, 전부 md5 `3bd833c3…`).
 
-남은 판단: agent-config 의 sibling-심링크 패턴(`voscli` / `incidentcli` / `sorge`)에
-`forge` 를 합류시킬지. 근거는 SKILL.md 와 `bin/forge` 가 05-28 / 05-29 / 06-01 / 06-02 /
-06-04 **전부 같은 날 짝지어 커밋**됐다는 것 — 한 변경에 두 리포 두 커밋. 같은 축이면 하나다.
-옮기는 손은 GLG — agent-config 쪽 삭제 + 심링크 생성이 한 손에서 일어나야 하고
-agent-config 는 이 담당자의 집이 아니다. **그 전까지 SKILL.md 를 여기 복사하지 말 것.**
+**이제부터 이 집의 의무**: `bin/forge` 를 고치는 커밋이 `SKILL.md` 도 같이 들고 간다.
+두 파일이 한 커밋에 없으면 그때부터 다시 갈린다. 근거와 이력은 `AGENTS.md`
+§agent-config 와의 관계.
+
+agent-config 담당자가 넘긴 것 하나 (전달받음, 이 집에서 재보지 않음): `run.sh` 의
+`LINKED_SKILL_REPOS` 가 리포 이름과 스킬 이름을 이중 사용해서, `forge-config` 가
+`forge` 를 소유하는 첫 사례에 `skills/forge-config` 를 찾다 실패하는 거짓 경고가
+났다. 그 집이 `LINKED_SKILL_NAMES[forge-config]=forge` 매핑으로 고쳤고 클론 URL도
+등록했다 — 새 기계에서 이 리포가 자동으로 pull 된다.
 
 ## Current stance — 2026-08-20
 

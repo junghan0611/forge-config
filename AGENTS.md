@@ -356,62 +356,65 @@ Forgejo 토큰 발급 시 검증된 필수 scope: `write:user`, `write:repositor
 
 ## agent-config 와의 관계 — 실측 (thinkpad, 2026-09-04)
 
-**말과 실물이 갈렸던 자리다.** 위 문단에는 한때 "forge-config 가 SKILL.md 의 SSOT,
-agent-config 는 thin pointer" 라는 그림이 `(앞으로 추가)` 딱지와 함께 그려져 있었다.
-그 모양은 서지 않았고, 앞으로도 그 모양이 아니다. 실측한 현재 상태는 이렇다.
+`forge` 스킬의 **실물은 이 리포에 산다.** agent-config 는 상대 심링크로 가리키기만 한다.
 
 ```
 forge-config (this repo)
-  └── bin/forge, bin/git-credential-forge    ← 동작의 SSOT (실물)
-        ↑ 절대경로로 호출
-agent-config/skills/forge/SKILL.md           ← 실물 361줄, agent-config 에 git-tracked
-  = ~/.claude/skills/forge/SKILL.md          ← ~/.claude/skills 자체가 agent-config/skills 심링크
-
-forge-config/.claude/                        ← 없음
+  ├── bin/forge, bin/git-credential-forge   ← 동작의 SSOT
+  └── .claude/skills/forge/SKILL.md         ← 스킬 실물 (361줄)
+        ↑ 상대 심링크
+agent-config/skills/forge → ../../forge-config/.claude/skills/forge
+        ↑ ~/.claude/skills 가 agent-config/skills 심링크
+6개 하네스 (claude / pi / claude-plugin / codex / copilot / kiro)
 ```
 
-측정 방법: `ls -ld ~/.claude/skills` (심링크), `wc -l`(361), `stat -c %i`(동일 inode),
-`git -C ~/repos/gh/agent-config ls-files skills/forge/`(tracked), `ls forge-config/.claude`(없음).
+**도달 6/6 실측** (`readlink -f "$p/SKILL.md"` + `[ -f ]`, 이 담당자가 직접):
+`~/.claude/skills/forge`, `~/.pi/agent/skills/pi-skills/forge`,
+`~/.pi/agent/claude-plugin/skills/forge`, `~/.codex/skills/forge`,
+`~/.copilot/skills/forge`, `~/.kiro/skills/forge` — 여섯 전부
+`forge-config/.claude/skills/forge/SKILL.md` 로 해석되고 md5 `3bd833c3…` 동일.
 
-### "thin pointer" 는 두 뜻으로 갈렸다
+### 어떻게 여기까지 왔나
 
-| 뜻 | 내용 | 실현 여부 |
+GLG 판정 (2026-09-04): 스킬은 그것이 문서화하는 CLI 옆에 산다. 근거는 실측 —
+SKILL.md 와 `bin/forge` 가 **다섯 날짜 전부 1:1로 함께 커밋**됐다 (05-28 / 05-29 /
+06-01 / 06-02 / 06-04). 한 변경에 두 리포 두 커밋이었고, 같은 축이면 하나다.
+agent-config 에서 sibling 리포 심링크는 새 패턴이 아니라 넷째다 —
+`voscli` / `incidentcli` / `sorge` 가 먼저 있었다.
+
+두 리포 두 커밋으로, 실물이 둘인 구간을 최소로 두고 옮겼다:
+
+| 단계 | 리포 | 커밋 |
 |---|---|---|
-| 파일 수준 | SKILL.md **본문**이 forge-config 에 살고 agent-config 는 stub | ❌ 선 적 없음 |
-| CLI 수준 | SKILL.md 본문은 agent-config 에 살되 **동작의 정답은 `bin/forge`** 라고 가리킴 | ✅ 이게 실물 |
+| 1 | forge-config | `dfe25c8` — SKILL.md 361줄 착지 (md5 동일, 내용 무변경). **푸시됨** |
+| 2 | agent-config | `3b9f72e` — `git rm -r skills/forge` + `ln -s` 한 커밋. **로컬 커밋, 푸시는 GLG 자리** |
 
-실현된 것은 CLI 수준이다 (agent-config `36fb001`, 2026-05-27,
-"replace stub fork with thin pointer to forge-config CLI"). SKILL.md `## SSOT` 단락이
-`~/repos/gh/forge-config/bin/forge` 를 정답으로 명시한다. 낡은 그림은 계획을
-현황도처럼 그려둔 것이었다 — 용어가 두 집에서 다른 뜻이면 어느 쪽이 참인지 아무도 모른다.
+순서를 이렇게 잡은 이유: 반대로 하면 agent-config 삭제부터 이쪽 착지까지 사람 시간만큼
+`~/.claude/skills/forge` 가 dangling 이다. 개별 링크 부류(pi / claude-plugin / codex)는
+target 문자열이 절대경로라 실물 교체에 안 흔들린다 — 이 사실은 **agent-config 담당자 측정,
+전달받음**이고 결과(6/6)는 이 담당자가 재확인했다.
 
-### 열린 판단 — 실물을 이 집으로 옮길 것인가
+### 3개월 갈렸던 자리 — 이제 닫혔다
 
-sorge 는 반대 예를 택했다: 순회 스킬 실물이 `~/repos/gh/sorge/.claude/skills/sorge/` 에 살고
-`agent-config/skills/sorge` 가 상대 심링크로 가리키기만 한다. **agent-config 에서 이미 선
-패턴이다** — 45개 스킬 중 3개(`voscli`, `incidentcli`, `sorge`)가 sibling 리포로의 심링크이고,
-셋 다 "스킬이 그 리포의 코드/바이너리에 의존한다"는 같은 모양이다. `forge` 도 정확히 그 모양이다.
+여기에는 한때 "forge-config 가 SSOT, agent-config 는 thin pointer" 라는 그림이
+`(앞으로 추가)` 딱지와 함께 그려져 있었다. **그 모양은 선 적이 없었고**, 실제로 선 것은
+같은 낱말의 다른 뜻이었다 — 본문은 agent-config 에 살고 동작의 정답만 `bin/forge` 를
+가리키는 **CLI 수준** pointer (agent-config `36fb001`, 2026-05-27).
 
-옮겨야 한다는 실측 근거 — **SKILL.md 와 `bin/forge` 는 늘 같은 날 함께 움직였다**:
+| 뜻 | 내용 | 2026-09-04 이전 | 지금 |
+|---|---|---|---|
+| 파일 수준 | SKILL.md 본문이 forge-config 에, agent-config 는 pointer | 계획만 | ✅ 참 |
+| CLI 수준 | 동작의 정답은 `bin/forge` | ✅ 참 | ✅ 참 |
 
-| 날짜 | forge-config `bin/forge` | agent-config `skills/forge/SKILL.md` |
-|---|---|---|
-| 2026-05-28 | `2462c9a` `06cc803` `eadf442` | `f0f02d8` `957de68` |
-| 2026-05-29 | `a0e56be` | `db357c6` `c323776` `14e6ee4` `29c4c7e` |
-| 2026-06-01 | `85c42a9` `d6b2619` `3988102` | `767c67b` |
-| 2026-06-02 | `ffeacaa` | `13f9d32` |
-| 2026-06-04 | `199375a` `0329df5` `e74b7fa` | `8ccdecb` `ee42cd2` |
+배운 것을 이 자리에 남긴다: **계획을 현황도 자리에 그리지 않는다.**
+`(앞으로 추가)` 딱지가 붙어 있어도 3개월 뒤엔 아무도 그 딱지를 읽지 않는다.
+커밋 수로는 안 잡히는 종류의 빚이다.
 
-한 변경마다 두 리포에 두 커밋. 같은 축에 살면 한 커밋이다.
-(참고: agent-config `73c3be2` "merge co-owned settings without symlinks" 는 **settings 조각**
-얘기이지 스킬 얘기가 아니다 — 반례로 오독하지 말 것.)
+### 이제 이 집의 의무
 
-**결정은 GLG 자리다.** 옮기려면 agent-config 쪽 파일 삭제 + 심링크 생성이 같은 손에서
-일어나야 하는데 agent-config 는 남의 집이다. 이 담당자는 발견하고 이름 붙여 넘긴다.
-그 전까지 SKILL.md 를 이 리포에 **복사하지 마라** — 실물이 둘이 되는 게 갈린 말보다 나쁘다.
-
-agent-config 는 모든 backend (pi / Claude Code / Codex / Gemini CLI) 가 forge 호출을 할 수
-있게 표면을 노출한다. 그 역할은 실물이 어디 살든 바뀌지 않는다.
+`bin/forge` 를 고치는 커밋이 `SKILL.md` 도 같이 들고 간다. 두 파일이 한 커밋에 없으면
+그때부터 다시 갈리기 시작하는 것이다. agent-config 는 6개 하네스 앞에 표면을 노출하는
+역할만 남고, 그 역할은 실물이 어디 살든 바뀌지 않는다.
 
 ## 진화 원칙
 
